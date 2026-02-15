@@ -4,7 +4,6 @@
  * Always run in the background that connects all the tabs and the chrome extensions
  * 
  * @author Ajeesh T
- * @version 2.1
  * @date 2024-08-31
  */
 
@@ -148,9 +147,17 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         const url = new URL(changeInfo.url);
         const match = url.href.match(MEETING_REGEX);
 
+        // Detect our special end marker
+        if (url.hash === "#end") {
+            if (meetingSessions[tabId]) {
+                completeSession(tabId);
+            }
+            return;
+        }
+
         if (match) {
             const id = match[1];
-            const start = new Date();
+            const start = new Date().toISOString();
             meetingSessions[tabId] = { id, start };
         } else if (meetingSessions[tabId]) {
             // User navigated away from meeting
@@ -172,15 +179,17 @@ chrome.tabs.onRemoved.addListener((tabId) => {
  * 
  * @returns {void}
  */
-function completeSession(tabId) {
-    const session = meetingSessions[tabId];
+function completeSession(tabId, session = null, endTime = null) {
+    if (!session) session = meetingSessions[tabId];
     if (!session) return;
 
-    const end = new Date();
-    const durationMinutes = Math.max(1, Math.round((end - session.start) / 60000)); // minimum 1 minute
+    // Use endTime if provided, otherwise use current time
+    const end = endTime ? new Date(endTime) : new Date();
+    const start = new Date(session.start);
+    const durationMinutes = Math.max(1, Math.round((end - start) / 60000)); // minimum 1 minute
 
-    const startTime = formatTime(session.start);
-    const endTime = formatTime(end);
+    const startTime = formatTime(start);
+    const formattedEndTime = formatTime(end);
     const id = session.id;
 
     chrome.storage.sync.get({ recentMeetings: {} }, (data) => {
@@ -196,7 +205,7 @@ function completeSession(tabId) {
 
         meetings[id].count += 1;
         meetings[id].totalDurationMinutes += durationMinutes;
-        meetings[id].history.unshift({ startTime, endTime, duration: durationMinutes });
+        meetings[id].history.unshift({ startTime, endTime: formattedEndTime, duration: durationMinutes });
 
         // Limit history per meeting to 10 entries
         if (meetings[id].history.length > 10) {
@@ -215,7 +224,7 @@ function completeSession(tabId) {
         chrome.storage.sync.set({ recentMeetings: limited });
     });
 
-    delete meetingSessions[tabId];
+    if (tabId) delete meetingSessions[tabId];
 }
 
 
@@ -232,6 +241,28 @@ function formatTime(date) {
         + `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
+// Add a lastSeen property to each session every second
+setInterval(() => {
+    const now = new Date().toISOString();
+    for (const tabId in meetingSessions) {
+        meetingSessions[tabId].lastSeen = now;
+    }
+    chrome.storage.local.set({ activeMeetingSessions: meetingSessions });
+}, 1000); // every second
+
+// On extension startup, complete unfinished sessions using lastSeen as end time
+chrome.runtime.onStartup.addListener(() => {
+    chrome.storage.local.get('activeMeetingSessions', (data) => {
+        const sessions = data.activeMeetingSessions || {};
+        for (const tabId in sessions) {
+            const session = sessions[tabId];
+            if (session && session.lastSeen) {
+                completeSession("", session, session.lastSeen);
+            }
+        }
+        chrome.storage.local.remove('activeMeetingSessions');
+    });
+});
 
 
 // chrome.storage.sync.remove("recentMeetings", function() {

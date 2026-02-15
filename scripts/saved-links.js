@@ -2,7 +2,6 @@
  * @fileoverview Main script for saved meetings page
  *  
  * @author Ajeesh T
- * @version 2.1
  * @date 2024-09-16
  */
 
@@ -96,6 +95,15 @@ function renderLinks() {
                 <button class="icon-btn save-icon" id="saveBtn${index}" aria-label="save"></button>
                 <button class="icon-btn delete-icon" id="deleteBtn${index}" aria-label="delete"></button>
             `;
+
+            linkItem.addEventListener('keydown', function (event) {
+                if(event.key === 'Enter') {
+                    event.preventDefault();
+                    saveLink(index);
+                }
+            })
+
+            
             // If non-edit mode, render item with edit and delete icon
         } else {
             linkItem.innerHTML = `
@@ -492,3 +500,4 @@ chrome.storage.sync.get('links', function (result) {
     renderLinks();
 
 });
+

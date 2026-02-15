@@ -2,7 +2,6 @@
  * @fileoverview Holds scripts related to extension designs
  *
  * @author Ajeesh T
- * @version 2.1
  * @date 2024-08-31
  */
 

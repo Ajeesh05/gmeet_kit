@@ -480,4 +480,13 @@ p {
     color: white;
 }
 
+.error-message {
+    color: red;
+    font-size: 0.9em;
+    margin-top: 4px;
+    display: none
+}
+
+
+
 /* Saved meeting page style end */

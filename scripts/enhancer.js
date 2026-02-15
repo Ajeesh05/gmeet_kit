@@ -2,7 +2,6 @@
  * @fileoverview Main script file for Gmeet plus
  * 
  * @author Ajeesh T
- * @version 2.1
  * @date 2024-08-31
  */
 const meetingId = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -385,6 +384,8 @@ const meetingId = Date.now().toString(36) + Math.random().toString(36).substr(2,
         confirm: function (event) {
             if (!confirm("Do you want to leave the call?"))
                 event.stopPropagation();
+            else
+                window.location.hash = "end";
         },
 
         /**
@@ -412,6 +413,29 @@ const meetingId = Date.now().toString(36) + Math.random().toString(36).substr(2,
         confirmationOff: function () {
             if (leave.getButton())
                 leave.getButton().removeEventListener("click", leave.confirm);
+        },
+
+        /**
+         * Add hash while ending the meeting, so that the chrome.tab.onUpdated listener on 
+         * background.js ends the meeting session and saves it to recent meetings
+         */
+        addHashListener: function () {
+
+            // Remove hash if it starts with "end_"
+            if (window.location.hash == "#end") {
+                history.replaceState(null, '', window.location.pathname + window.location.search);
+            }
+
+            if (leave.getButton()) {
+                leave.getButton().addEventListener("click", function () {
+                    // Add a unique hash or query param to the URL
+                    if (!initSettings['leave-confirmation'])
+                        window.location.hash = "end";
+                });
+            } else {
+                setTimeout(leave.addHashListener, 1000);
+            }
+
         }
     };
 
@@ -421,7 +445,7 @@ const meetingId = Date.now().toString(36) + Math.random().toString(36).substr(2,
         transcript: {},
 
         getCaptions: function () {
-            
+
             let result = {};
 
             const captionDiv = document.querySelector(`[jsname="dsyhDe"]`);
@@ -474,12 +498,12 @@ const meetingId = Date.now().toString(36) + Math.random().toString(36).substr(2,
                         text: captions[key]['text']
                     };
 
-                    
-                    data = JSON.stringify({ 
+
+                    data = JSON.stringify({
                         meetingId: meetingId,
-                        user: user, 
-                        text: captions[key]['text'], 
-                        time: lastRecordedTime[user] 
+                        user: user,
+                        text: captions[key]['text'],
+                        time: lastRecordedTime[user]
                     });
 
                     window.postMessage({ type: "transcript", data }, "*");
@@ -544,6 +568,10 @@ const meetingId = Date.now().toString(36) + Math.random().toString(36).substr(2,
 
         getCurrentTime() {
             return timeString = (new Date()).toTimeString().split(' ')[0]; // "HH:MM:SS"
+        },
+
+        getUid() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
         }
     };
 
@@ -652,6 +680,8 @@ const meetingId = Date.now().toString(36) + Math.random().toString(36).substr(2,
 
         transcript.recordTranscript();
 
+        leave.addHashListener();
+
     }
 
     /**
@@ -670,7 +700,6 @@ const meetingId = Date.now().toString(36) + Math.random().toString(36).substr(2,
 
 })();
 
-function downloadTranscript()
-{
-    window.postMessage({ type: "download_transcript", data: meetingId}, "*");
+function downloadTranscript() {
+    window.postMessage({ type: "download_transcript", data: meetingId }, "*");
 }
