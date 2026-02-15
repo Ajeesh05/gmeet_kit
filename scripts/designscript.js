@@ -2,7 +2,7 @@
  * @fileoverview Holds scripts related to extension designs
  *
  * @author Ajeesh T
- * @version 1.0
+ * @version 2.1
  * @date 2024-08-31
  */
 
@@ -69,4 +69,19 @@ document.getElementById('disable-camera').addEventListener("change", function ()
         if (document.getElementById('auto-video-off').checked == false)
             document.getElementById('auto-video-off').click();
     }
+});
+
+
+// Gets all checkboxe wrappers
+const checkboxWrappers = document.querySelectorAll('.checkbox-wrapper-7');
+
+// For accessing through tab and Enter or space to toggle checkbox
+checkboxWrappers.forEach((div) => {
+    const checkbox = div.querySelector("input[type=checkbox]");
+    div.addEventListener('keydown', function (event) {
+        if (event.key === ' ' || event.key === 'Enter') {
+            event.preventDefault(); // Prevent page scrolling
+            checkbox.checked = !checkbox.checked; // Toggle the checkbox state
+        }
+    });
 });

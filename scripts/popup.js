@@ -2,7 +2,7 @@
  * @fileoverview Main script for popup extension
  * 
  * @author Ajeesh T
- * @version 1.0
+ * @version 2.1
  * @date 2024-08-31
  */
 
@@ -125,41 +125,122 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     // clearStorage();
 
-    // Toggle between settings and saved meetings
-    document.getElementById('settings-button').addEventListener("click", function () {
+    // Toggle between pages
+    settingButtom.addEventListener("click", function () {
+        target[this.getAttribute('custom-target')]();
+    });
 
-        const settings = document.getElementById('settings');
-        const savedMeets = document.getElementById('saved-group');
-        const title = document.getElementById('title');
-        const settingIcon = document.getElementById('setting');
-        const previousIcon = document.getElementById('previous');
-
-        if (window.getComputedStyle(settings).display == 'none') {
-            // Hide saved meeting div
-            savedMeets.style.display = 'none';
-            // Show settings div
-            settings.style.display = 'flex';
-            // Hide setting icon
-            settingIcon.style.display = 'none';
-            // Show previous icon
-            previousIcon.style.display = 'block';
-            // Change title to settings
-            title.textContent = 'Settings';
-        } else {
-            // Show saved meetings div
-            savedMeets.style.display = 'block';
-            // Hide settings div
-            settings.style.display = 'none';
-            // Show settings icon
-            settingIcon.style.display = 'block';
-            // Hide previous icon
-            previousIcon.style.display = 'none';
-            // Change title to saved meetings
-            title.textContent = 'Saved meetings';
-        }
-
+    // Return to home
+    homeButtom.addEventListener("click", function () {
+        target.savedMeetings();
     });
 
 });
 
+// Setting button and home button
+const settingButtom = document.getElementById('settings-button');
+const homeButtom = document.getElementById('home-button');
+
+const target = {
+
+    popup: document.getElementById('popupContent'),
+    settings: document.getElementById('settings'),
+    savedMeets: document.getElementById('saved-group'),
+    title: document.getElementById('title'),
+    headerIcon: document.getElementById('header-img'),
+    meetForLater: document.getElementById('meet-for-later'),
+
+    /**
+     * Navigate to saved meetings page
+     * 
+     * @returns {void}
+     */
+    savedMeetings: function () {
+
+        // Show saved meetings div
+        target.savedMeets.style.display = 'block';
+        // Hide settings div
+        target.settings.style.display = 'none';
+        target.meetForLater.style.display = 'none';
+        homeButtom.style.display = 'none';
+        // Change title to saved meetings
+        target.title.textContent = 'Gmeet kit';
+        target.showSettingsIcon();
+        settingButtom.setAttribute('custom-target', 'settingsPage');
+    },
+
+    /**
+     * Navigate to configurations page
+     * 
+     * @returns {void}
+     */
+    settingsPage: function () {
+        // Hide saved meeting div
+        target.savedMeets.style.display = 'none';
+        // Show settings div
+        target.settings.style.display = 'flex';
+        homeButtom.style.display = 'inline-block';
+        // Change title to settings
+        target.title.textContent = 'Settings';
+        target.meetForLater.style.display = 'none';
+        target.showBackIcon();
+        settingButtom.setAttribute('custom-target', 'savedMeetings');
+
+    },
+
+    /**
+     * Navigate to choose your meeting url page
+     * 
+     * @returns {void}
+     */
+    meetForLaterPage: function () {
+        target.savedMeets.style.display = 'none';
+        target.meetForLater.style.display = 'block';
+        homeButtom.style.display = 'inline-block';
+        target.title.textContent = 'Choose your meeting url';
+        target.showRefreshIcon();
+        settingButtom.setAttribute('custom-target', 'refreshMeetsForLater');
+    },
+
+    /**
+     * Show setting icon
+     * 
+     * @returns {void}
+     */
+    showSettingsIcon: function () {
+        // Show settings icon
+        target.headerIcon.src = 'images/settings.svg';
+        settingButtom.classList.add('rotate');
+    },
+
+    /**
+     * Show back icon
+     * 
+     * @returns {void}
+     */
+    showBackIcon: function () {
+        target.headerIcon.src = 'images/back.svg';
+        settingButtom.classList.remove('rotate');
+    },
+
+    /**
+     * Show refresh icon
+     * 
+     * @returns {void}
+     */
+    showRefreshIcon: function () {
+        target.headerIcon.src = 'images/refresh.svg';
+        settingButtom.classList.add('rotate');
+    },
+
+    /**
+     * Refresh meeting urls
+     * 
+     * @returns {void}
+     */
+    refreshMeetsForLater: function () {
+        fetchMeetsForLater(10);
+    }
+
+}
 

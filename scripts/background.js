@@ -4,7 +4,7 @@
  * Always run in the background that connects all the tabs and the chrome extensions
  * 
  * @author Ajeesh T
- * @version 1.0
+ * @version 2.1
  * @date 2024-08-31
  */
 
@@ -119,7 +119,6 @@ function findTabsBySubdomain(subdomain) {
  */
 function sendMessageOnActivated(subdomain) {
     chrome.tabs.onActivated.addListener(function (activeInfo) {
-        debugger;
         const tabId = activeInfo.tabId;
 
         // Get the tab information

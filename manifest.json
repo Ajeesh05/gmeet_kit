@@ -1,9 +1,9 @@
 {
     "name": "Gmeet kit",
-    "version": "2.0",
+    "version": "2.1",
     "manifest_version": 3,
     "minimum_chrome_version": "120",
-    "description": "Enhance Gmeet",
+    "description": "Enhance Your Google Meet Experience",
     "incognito": "split",
     "action": {
         "default_popup": "popup.html"
@@ -11,7 +11,9 @@
     "permissions": [
         "activeTab",
         "storage",
-        "tabs"
+        "tabs",
+        "scripting",
+        "downloads"
     ],
     "icons": {
         "16": "images/icon16.png",

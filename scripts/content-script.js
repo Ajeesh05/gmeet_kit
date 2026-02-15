@@ -2,7 +2,7 @@
  * @fileoverview Acts as a bridge between extension and DOM.
  *
  * @author Ajeesh T
- * @version 1.0
+ * @version 2.1
  * @date 2024-08-31
  */
 

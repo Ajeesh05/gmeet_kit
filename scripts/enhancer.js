@@ -2,7 +2,7 @@
  * @fileoverview Main script file for Gmeet plus
  * 
  * @author Ajeesh T
- * @version 1.0
+ * @version 2.1
  * @date 2024-08-31
  */
 
@@ -107,9 +107,9 @@
          * Disable camera
          */
         disable: function () {
-            if (camera.get()) {
-                camera.turnOff();
+            if (camera.get() && initSettings['disable-camera']) {
                 document.addEventListener("keydown", camera.disableShortcut);
+                camera.turnOff();
                 camera.get().disabled = true;
             }
         },
@@ -128,7 +128,7 @@
          */
         disableTimout: function () {
             if (join.isJoined())
-                camera.disable();
+                common.setIntervalX(camera.disable, 1000, 10);
             else
                 setTimeout(camera.disableTimout, 1000);
         },
@@ -214,9 +214,9 @@
          * Disable mic
          */
         disable: function () {
-            if (mic.get()) {
-                mic.turnOff();
+            if (mic.get() && initSettings['disable-mic']) {
                 document.addEventListener("keydown", mic.disableShortcut);
+                mic.turnOff();
                 mic.get().disabled = true;
             }
         },
@@ -235,7 +235,7 @@
          */
         disableTimout: function () {
             if (join.isJoined())
-                mic.disable();
+                common.setIntervalX(mic.disable, 1000, 10);
             else
                 setTimeout(mic.disableTimout, 1000);
         },
@@ -452,6 +452,10 @@
          */
         isEmpty: function (obj) {
             return Object.keys(obj).length === 0;
+        },
+
+        sleep: function (ms) {
+            return new Promise((resolve) => setTimeout(resolve, ms));
         }
     };
 
@@ -521,12 +525,19 @@
             }
         }
 
+        initSettings[option] = checked;
+
         // calls the mathod dynamically
         if (change[option][checked])
             change[option][checked]();
     }
 
 
+    function isInstantMeeting()
+    {
+        return window.location.pathname == '/new' || window.location.search.includes('adhoc')
+    }
+    
     /**
      * Main function that does all operations in meet
      */    
@@ -558,7 +569,11 @@
     /**
      * Initializes the meet operations
      */
-    function init() {
+    async function init() {
+
+        if(isInstantMeeting())
+            await common.sleep(5000);
+
         if (document.readyState === 'loading')
             document.addEventListener('DOMContentLoaded', main);
         else

@@ -7,21 +7,14 @@
 body {
     font-family: Arial, sans-serif;
     background-color: #2b2b2b;
-    border-radius: 10px;
     margin: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     color: #fff;
 }
 
 .popup {
     background-color: #333;
-    border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
-    width: 350px;
-    max-width: 90%;
-    padding: 20px;
+    width: 325px;
+    padding: 15px;
 }
 
 .popup-header {
@@ -38,7 +31,11 @@ body {
     text-align: center;
 }
 
-.header-button {
+.home-svg {
+    fill:#4CAF50;
+}
+
+.header-button-right {
     position: absolute;
     right: 0;
     padding: 5px;
@@ -50,9 +47,29 @@ body {
     transition: transform 0.3s ease;
 }
 
+.header-button-left {
+    position: absolute;
+    left: 0;
+    padding: 5px;
+    background-color: transparent;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
 
-.header-button:hover {
+.header-button-left:hover {
     color: black;
+    transform: scale(1.1);
+}
+
+.header-button-right:hover {
+    color: black;
+    transform: scale(1.1);
+}
+
+.rotate:hover {
     transform: rotate(45deg) scale(1.1);
 }
 
@@ -126,6 +143,7 @@ body {
     height: 24px;
 }
 
+
 .popup-footer {
     text-align: center;
 }
@@ -162,17 +180,9 @@ p {
     padding-left: 5px;
 }
 
-#previous {
-    display: none;
-}
-
-#previous:hover {
-    transform: rotate(-45deg);
-}
-
 /* Scrollbar for WebKit browsers */
 ::-webkit-scrollbar {
-    width: 10px; /* Width of the scrollbar */
+    width: 5px; /* Width of the scrollbar */
 }
 
 ::-webkit-scrollbar-thumb {
@@ -300,7 +310,7 @@ p {
 /* Saved meeting page style start */
 
 .links-container {
-    padding: 0px 20px 0px 20px;
+    padding: 0px 10px 0px 10px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -308,7 +318,7 @@ p {
 
 .link-item {
     background-color: #1f1f1f;
-    padding: 15px;
+    padding: 10px;
     margin-bottom: 10px;
     border-radius: 8px;
     width: 100%;
@@ -338,7 +348,7 @@ p {
 
 .link-name {
     color: #4CAF50;
-    font-size: 18px;
+    font-size: 16px;
     font-weight: bold;
     text-align: left;
     margin-right: auto;
@@ -372,12 +382,35 @@ p {
     color: #e0e0e0;
     cursor: pointer;
     margin-left: 10px;
-    font-size: 18px;
+    font-size: 16px;
 }
 
 .icon-btn:hover {
     color: #4CAF50;
     transform: scale(1.2);
+}
+
+/* Tooltip container */
+.icon-btn::after {
+    content: attr(aria-label); /* Use ARIA label for accessibility */
+    position: absolute;
+    top: -30px; /* Adjust for positioning above the icon */
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #333; /* Background color for the tooltip */
+    color: #fff; /* Text color */
+    padding: 5px 8px;
+    font-size: 12px;
+    border-radius: 4px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* Show tooltip on hover */
+.icon-btn:hover::after {
+    opacity: 1;
 }
 
 .edit-icon::before {
@@ -390,9 +423,24 @@ p {
     /* Check (save) icon */
 }
 
+.saved-icon {
+    color: #4CAF50;
+    transform: scale(1.2);
+}
+
+.saved-icon::before {
+    content: '\2714';
+    /* Check (save) icon */
+}
+
 .delete-icon::before {
     content: '\1F5D1';
     /* Trash (delete) icon */
+}
+
+.copy-icon::before {
+    content: '\2398';
+    /* Clipboard (copy) icon */
 }
 
 .add-link-input {

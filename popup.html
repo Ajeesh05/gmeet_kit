@@ -16,13 +16,15 @@
 <body>
     <div class="popup">
         <div class="popup-header">
-            <h2 id="title">Saved meetings</h2>
-            <button class="header-button" id="settings-button">
-                <img src="images/previous.png" id="previous" class="icon">
-                <img src="images/setting.png" id="setting" class="icon">
+            <button class="header-button-left" id="home-button" style="display: none;" custom-target="savedMeetings">
+                <img src="images/home.svg" class="icon">
+            </button>
+            <h2 id="title">Gmeet kit</h2>
+            <button class="header-button-right rotate" id="settings-button" custom-target="settingsPage">
+                <img src="images/settings.svg" id="header-img" class="icon">
             </button>
         </div>
-        <div class="popup-content">
+        <div class="popup-content" id="popupContent">
             <div id="saved-group">
 
                 <div class="links-container" id="linksContainer">
@@ -38,6 +40,13 @@
                 </div>
 
             </div>
+            <div id="meet-for-later">
+
+                <div class="links-container" id="meetForLaterContainer">
+                    <!-- Dynamic content for links will be added here -->
+                </div>
+
+            </div>
             <div class="checkbox-group" id="settings">
                 <div class="checkbox-item">
                     <div class="checkbox-label">
@@ -49,7 +58,7 @@
                             <p>Automatically mute microphone.</p>
                         </div>
                     </div>
-                    <div class="checkbox-wrapper-7">
+                    <div class="checkbox-wrapper-7" tabindex="0">
                         <input type="checkbox" class="tgl tgl-ios" id="auto-mute">
                         <label class="tgl-btn" for="auto-mute"></label>
                     </div>
@@ -64,7 +73,7 @@
                             <p>Automatically turn off video.</p>
                         </div>
                     </div>
-                    <div class="checkbox-wrapper-7">
+                    <div class="checkbox-wrapper-7" tabindex="0">
                         <input type="checkbox" class="tgl tgl-ios" id="auto-video-off">
                         <label class="tgl-btn" for="auto-video-off"></label>
                     </div>
@@ -79,7 +88,7 @@
                             <p>Mute and disable mic after joining the meet.</p>
                         </div>
                     </div>
-                    <div class="checkbox-wrapper-7">
+                    <div class="checkbox-wrapper-7" tabindex="0">
                         <input type="checkbox" class="tgl tgl-ios" id="disable-mic">
                         <label class="tgl-btn" for="disable-mic"></label>
                     </div>
@@ -94,7 +103,7 @@
                             <p>Turn off and disable camera after joining the meet</p>
                         </div>
                     </div>
-                    <div class="checkbox-wrapper-7">
+                    <div class="checkbox-wrapper-7" tabindex="0">
                         <input type="checkbox" class="tgl tgl-ios" id="disable-camera">
                         <label class="tgl-btn" for="disable-camera"></label>
                     </div>
@@ -109,7 +118,7 @@
                             <p>Hold space to unmute or mute.</p>
                         </div>
                     </div>
-                    <div class="checkbox-wrapper-7">
+                    <div class="checkbox-wrapper-7" tabindex="0">
                         <input type="checkbox" class="tgl tgl-ios" id="push-to-talk">
                         <label class="tgl-btn" for="push-to-talk"></label>
                     </div>
@@ -124,7 +133,7 @@
                             <p>Join the meeting automatically.</p>
                         </div>
                     </div>
-                    <div class="checkbox-wrapper-7">
+                    <div class="checkbox-wrapper-7" tabindex="0">
                         <input type="checkbox" class="tgl tgl-ios" id="auto-join">
                         <label class="tgl-btn" for="auto-join"></label>
                     </div>
@@ -139,16 +148,14 @@
                             <p>Ask to confirm when you leave a meeting.</p>
                         </div>
                     </div>
-                    <div class="checkbox-wrapper-7">
+                    <div class="checkbox-wrapper-7" tabindex="0">
                         <input type="checkbox" class="tgl tgl-ios" id="leave-confirmation">
                         <label class="tgl-btn" for="leave-confirmation"></label>
                     </div>
                 </div>
             </div>
         </div>
-        <div>
-            <input type="button" class="icon-btn edit-icon" id="editBtn">
-        </div>
+        <input type="button" style="display: none;" class="icon-btn edit-icon" id="editBtn">
     </div>
     <script src="scripts/popup.js"></script>
     <script src="scripts/designscript.js"></script>
