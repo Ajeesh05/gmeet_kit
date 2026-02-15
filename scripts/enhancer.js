@@ -5,8 +5,10 @@
  * @version 2.1
  * @date 2024-08-31
  */
+const meetingId = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 
 (function () {
+
 
     // To select camera element from DOM
     const cameraIndicator = {
@@ -43,6 +45,8 @@
     // Object holds camera related methods
     const camera = {
 
+        isDisableInitiated: false,
+
         /**
          * Get the camera element
          *
@@ -55,7 +59,7 @@
             `);
         },
 
-        
+
         /**
          * Get status of the camera
          *
@@ -119,18 +123,19 @@
          */
         turnOffTimeout: function () {
             camera.turnOff();
-            if (!join.ready())
+            if (!join.ready() || !camera.get() || camera.getStatus() === 'On')
                 setTimeout(camera.turnOffTimeout, 1000);
         },
 
         /**
-         * Disable camera with setTimeout
+         * Disable camera with setInterval
          */
         disableTimout: function () {
-            if (join.isJoined())
-                common.setIntervalX(camera.disable, 1000, 10);
-            else
-                setTimeout(camera.disableTimout, 1000);
+
+            if (!camera.isDisableInitiated) {
+                camera.isDisableInitiated = true;
+                setInterval(camera.disable, 2000);
+            }
         },
 
         /**
@@ -151,6 +156,7 @@
     // Object holds microphone related methods
     const mic = {
 
+        isDisableInitiated: false,
         /**
          * Get the mic element
          * 
@@ -226,18 +232,19 @@
          */
         turnOffTimeout: function () {
             mic.turnOff();
-            if (!join.ready())
+            if (!join.ready() || !mic.get() || mic.getStatus() === 'On')
                 setTimeout(mic.turnOffTimeout, 1000);
         },
 
         /**
-         * Disable mic with setTimeout
+         * Disable mic with setInterval
          */
         disableTimout: function () {
-            if (join.isJoined())
-                common.setIntervalX(mic.disable, 1000, 10);
-            else
-                setTimeout(mic.disableTimout, 1000);
+
+            if (!mic.isDisableInitiated) {
+                mic.isDisableInitiated = true;
+                setInterval(mic.disable, 2000);
+            }
         },
 
         /**
@@ -408,6 +415,83 @@
         }
     };
 
+
+    const transcript = {
+
+        transcript: {},
+
+        getCaptions: function () {
+            
+            let result = {};
+
+            const captionDiv = document.querySelector(`[jsname="dsyhDe"]`);
+
+            const childDivArray = Array.from(captionDiv.children).filter(child => child.tagName === 'DIV');
+
+            childDivArray && childDivArray.forEach(user => {
+                // Get the username (inside the `KcIKyf` class)
+                const username = user.getElementsByClassName('KcIKyf')[0]?.textContent?.trim();
+
+                const uniqueTag = user.querySelector(`img`).dataset.iml;
+
+                // Get all messages (inside the `bh44bd` class)
+                const messages = Array.from(user.querySelectorAll('.bh44bd span')).map(span =>
+                    span.textContent.trim()
+                );
+
+                // Add the username and their messages to the result object
+                if (username)
+                    result[uniqueTag] = { user: username, text: messages };
+
+            });
+
+            return result;
+        },
+
+        recordTranscript: function () {
+
+            let captions = {};
+            let lastKey = {};
+            let lastRecordedTime = {};
+
+            setInterval(() => {
+
+                captions = transcript.getCaptions();
+
+                for (let key in captions) {
+
+                    user = captions[key]['user'];
+
+                    if (lastKey[user] != key) {
+
+                        lastRecordedTime[user] = common.getCurrentTime();
+
+                        lastKey[user] = key;
+                    }
+
+                    transcript.transcript[lastRecordedTime[user]] = {
+                        user: user,
+                        text: captions[key]['text']
+                    };
+
+                    
+                    data = JSON.stringify({ 
+                        meetingId: meetingId,
+                        user: user, 
+                        text: captions[key]['text'], 
+                        time: lastRecordedTime[user] 
+                    });
+
+                    window.postMessage({ type: "transcript", data }, "*");
+                }
+
+                // console.log(transcript.transcript);
+
+            }, 500);
+        }
+
+    };
+
     // Object holds the common methods
     const common = {
 
@@ -456,6 +540,10 @@
 
         sleep: function (ms) {
             return new Promise((resolve) => setTimeout(resolve, ms));
+        },
+
+        getCurrentTime() {
+            return timeString = (new Date()).toTimeString().split(' ')[0]; // "HH:MM:SS"
         }
     };
 
@@ -471,7 +559,6 @@
             if (event.data.type === "initData") {
                 if (common.isEmpty(initSettings)) {
                     initSettings = event.data.data;
-                    console.log(event.data.data);
                     // Initiates the process
                     init();
                 }
@@ -533,14 +620,13 @@
     }
 
 
-    function isInstantMeeting()
-    {
+    function isInstantMeeting() {
         return window.location.pathname == '/new' || window.location.search.includes('adhoc')
     }
-    
+
     /**
      * Main function that does all operations in meet
-     */    
+     */
     function main() {
 
         if (initSettings['auto-mute'])
@@ -564,6 +650,8 @@
         if (initSettings['leave-confirmation'])
             leave.confirmation();
 
+        transcript.recordTranscript();
+
     }
 
     /**
@@ -571,7 +659,7 @@
      */
     async function init() {
 
-        if(isInstantMeeting())
+        if (isInstantMeeting())
             await common.sleep(5000);
 
         if (document.readyState === 'loading')
@@ -581,3 +669,8 @@
     }
 
 })();
+
+function downloadTranscript()
+{
+    window.postMessage({ type: "download_transcript", data: meetingId}, "*");
+}

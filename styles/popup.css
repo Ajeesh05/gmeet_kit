@@ -475,4 +475,9 @@ p {
     transform: scale(1.2);
 }
 
+.time-ago {
+    font-weight: normal;
+    color: white;
+}
+
 /* Saved meeting page style end */

@@ -11,6 +11,7 @@ let links = [];
 
 const linksContainer = document.getElementById('linksContainer');
 const meetForLaterContainer = document.getElementById('meetForLaterContainer');
+const recentMeetingsContainer = document.getElementById('recentMeetingsContainer');
 const newLinkName = document.getElementById('newLinkName');
 const newLinkUrl = document.getElementById('newLinkUrl');
 const addLink = document.getElementById('addLinkDiv');
@@ -42,6 +43,17 @@ function renderLinks() {
     `;
     linksContainer.appendChild(generateMeet);
 
+
+    // For Last 10 meetings page
+    const recentMeetings = document.createElement('div');
+    recentMeetings.className = 'link-item';
+    recentMeetings.innerHTML = `
+        <a href="" target="_blank" class="link-name">Last 10 meetings</a>
+        <img src="images/angle-small-right.svg" class="icon">
+    `;
+    linksContainer.appendChild(recentMeetings);
+
+
     const savedMeetings = document.createElement('div');
     savedMeetings.innerHTML = `<h3>Saved meetings<h3>`;
     linksContainer.appendChild(savedMeetings);
@@ -57,6 +69,13 @@ function renderLinks() {
         event.preventDefault();
         target.meetForLaterPage();
         fetchMeetsForLater(fetchMeetingCount);
+    });
+
+    // Get recent meetings and append it.
+    recentMeetings.addEventListener('click', async function (event) {
+        event.preventDefault();
+        target.recentMeetingsPage();
+        openRecentMeetings(fetchMeetingCount);
     });
 
     // If no link return false to avoid error
@@ -162,7 +181,7 @@ function saveLink(index) {
  * 
  * @param {number} - index 
  */
-function deleteLink(index) {debugger;
+function deleteLink(index) {
 
     // Remove the link
     links.splice(index, 1);
@@ -352,6 +371,108 @@ function exctractMeetUrls(scripts) {
 
     // If no match is found, return null or a default value
     return null;
+}
+
+/**
+ * Generates recent meetings div
+ * 
+ * @async
+ * @returns {void}
+ */
+async function openRecentMeetings() {
+
+    const recentMeetings = await getRecentMeetings();
+
+    recentMeetingsContainer.innerHTML = '';
+
+    if (recentMeetings && recentMeetings.length == 0) {
+        const linkItem = document.createElement('div');
+        linkItem.innerHTML = `No recent meeting to display`;
+        recentMeetingsContainer.appendChild(linkItem);
+        return;
+    }
+
+    for (const meeting of recentMeetings) {
+
+        // Creating a link item div
+        const linkItem = document.createElement('div');
+        linkItem.className = 'link-item';
+
+        linkItem.innerHTML = `
+            <a href="https://meet.google.com/${meeting.id}" target="_blank" class="link-name">
+                ${meeting.id} <small class = "time-ago" >(${getTimeAgo(meeting.history[0].endTime)})</small>
+            </a>
+            <img src="images/angle-small-right.svg" class="icon">
+        `;
+
+        linkItem.addEventListener('click', function () {
+            this.querySelector('a').click();
+        });
+
+        recentMeetingsContainer.appendChild(linkItem);
+
+    }
+}
+
+
+/**
+ * Get recent meetings from chrome storage
+ * 
+ * @async
+ * @returns {Promise<void>} Resolves when the data retreived from chrome storage
+ */
+async function getRecentMeetings() {
+    return new Promise((resolve) => {
+        chrome.storage.sync.get("recentMeetings", (data) => {
+            const grouped = data.recentMeetings || {};
+
+            // Convert to array with id included
+            const meetings = Object.entries(grouped).map(([id, info]) => ({
+                id,
+                ...info
+            }));
+
+            // Sort by most recent meeting time (from history[0])
+            meetings.sort((a, b) => {
+                const timeA = new Date(a.history[0]?.endTime || 0).getTime();
+                const timeB = new Date(b.history[0]?.endTime || 0).getTime();
+                return timeB - timeA; // Descending (most recent first)
+            });
+
+            resolve(meetings);
+        });
+    });
+}
+
+/**
+ * Calculates time ago for recent meetings
+ * 
+ * @param {string} - time 
+ * @returns {string} - time ago
+ */
+function getTimeAgo(startTimeStr) {
+    const then = new Date(startTimeStr).getTime();
+    const now = Date.now();
+    const diffMs = now - then;
+
+    const totalSeconds = Math.floor(diffMs / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    const secs = totalSeconds % 60;
+    const mins = minutes % 60;
+    const hrs = hours % 24;
+
+    if (days > 0) {
+        return `${days} day${days > 1 ? 's' : ''} ${hrs} hr${hrs !== 1 ? 's' : ''} ago`;
+    } else if (hours > 0) {
+        return `${hours} hr${hours > 1 ? 's' : ''} ${mins} min${mins !== 1 ? 's' : ''} ago`;
+    } else if (minutes > 0) {
+        return `${minutes} min${minutes !== 1 ? 's' : ''} ${secs} sec${secs !== 1 ? 's' : ''} ago`;
+    } else {
+        return `${secs} sec${secs !== 1 ? 's' : ''} ago`;
+    }
 }
 
 // Get the links from chrome storage and initial render

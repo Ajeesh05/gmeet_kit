@@ -1,5 +1,5 @@
 /**
- * @fileoverview Backgroud service worker for Gmeet plus
+ * @fileoverview Backgroud service worker for Gmeet kit
  * 
  * Always run in the background that connects all the tabs and the chrome extensions
  * 
@@ -8,16 +8,24 @@
  * @date 2024-08-31
  */
 
+
 chrome.runtime.onConnect.addListener((port) => {
     // Identify the port's sender (popup or content script)
     port.onMessage.addListener((message) => {
         if (port.name === "popup") {
-            // Relay message from panel to content script
+            // Replay message from panel to content script
             chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                 chrome.tabs.sendMessage(tabs[0].id, message);
             });
         } else if (port.name === "content") {
-            findTabsBySubdomain("meet.google.com");
+
+            if (message.type == 'init')
+                findTabsBySubdomain("meet.google.com");
+            else if (["transcript"].includes(message.type))
+                storeTranscript(message.data);
+            else if (message.type == 'download_transcript')
+                downloadTranscriptAsCSV(message.data)
+
             // sendMessageOnActivated("meet.google.com");
         }
     });
@@ -29,14 +37,13 @@ chrome.runtime.onConnect.addListener((port) => {
  * @param {number} tabId
  * 
  * @returns {void}
- */ 
+ */
 function sendInitData(tabId) {
     chrome.storage.sync.get('settings', function (result) {
         const message = {
             type: "initData",
             data: result.settings
         };
-        console.log(message);
         chrome.tabs.sendMessage(tabId, message, function (response) {
             if (chrome.runtime.lastError) {
                 console.log(chrome.runtime.lastError.message);
@@ -44,7 +51,6 @@ function sendInitData(tabId) {
                 console.log('Message sent to tab:', tabId);
             }
         });
-        console.log(message);
     });
 }
 
@@ -132,3 +138,102 @@ function sendMessageOnActivated(subdomain) {
         });
     });
 }
+
+
+const MEETING_REGEX = /^https:\/\/meet\.google\.com\/([a-z]{3}-[a-z]{4}-[a-z]{3})$/;
+const meetingSessions = {}; // Stores temporary active meetings (tabId -> { id, startTime })
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.url) {
+        const url = new URL(changeInfo.url);
+        const match = url.href.match(MEETING_REGEX);
+
+        if (match) {
+            const id = match[1];
+            const start = new Date();
+            meetingSessions[tabId] = { id, start };
+        } else if (meetingSessions[tabId]) {
+            // User navigated away from meeting
+            completeSession(tabId);
+        }
+    }
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+    if (meetingSessions[tabId]) {
+        completeSession(tabId);
+    }
+});
+
+/**
+ * Store the meeting info, when the meeting ends
+ *
+ * @param {int} tabId - subdomain url
+ * 
+ * @returns {void}
+ */
+function completeSession(tabId) {
+    const session = meetingSessions[tabId];
+    if (!session) return;
+
+    const end = new Date();
+    const durationMinutes = Math.max(1, Math.round((end - session.start) / 60000)); // minimum 1 minute
+
+    const startTime = formatTime(session.start);
+    const endTime = formatTime(end);
+    const id = session.id;
+
+    chrome.storage.sync.get({ recentMeetings: {} }, (data) => {
+        const meetings = data.recentMeetings;
+
+        if (!meetings[id]) {
+            meetings[id] = {
+                count: 0,
+                totalDurationMinutes: 0,
+                history: []
+            };
+        }
+
+        meetings[id].count += 1;
+        meetings[id].totalDurationMinutes += durationMinutes;
+        meetings[id].history.unshift({ startTime, endTime, duration: durationMinutes });
+
+        // Limit history per meeting to 10 entries
+        if (meetings[id].history.length > 10) {
+            meetings[id].history = meetings[id].history.slice(0, 10);
+        }
+
+        // Limit total meeting IDs to 10 by most recent history[0].startTime
+        const sortedEntries = Object.entries(meetings).sort((a, b) => {
+            const timeA = new Date(a[1].history[0]?.startTime || 0).getTime();
+            const timeB = new Date(b[1].history[0]?.startTime || 0).getTime();
+            return timeB - timeA; // most recent first
+        });
+
+        const limited = Object.fromEntries(sortedEntries.slice(0, 10)); // keep only top 10 meetings
+
+        chrome.storage.sync.set({ recentMeetings: limited });
+    });
+
+    delete meetingSessions[tabId];
+}
+
+
+/**
+ * Formats the time
+ *
+ * @param {string} date
+ * 
+ * @returns {string}
+ */
+function formatTime(date) {
+    const pad = (n) => (n < 10 ? '0' + n : n);
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} `
+        + `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+
+
+// chrome.storage.sync.remove("recentMeetings", function() {
+//     console.log("Greeting removed!");
+// });

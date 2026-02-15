@@ -6,6 +6,8 @@
  * @date 2024-08-31
  */
 
+let meetingId = '';
+
 // Starts at DOM content fully loaded
 document.addEventListener('DOMContentLoaded', function () {
 
@@ -42,10 +44,9 @@ document.addEventListener('DOMContentLoaded', function () {
      * @param {string} id - Key
      * @param {boolean} state - Value
      * 
-     * @returns {Promise<void>} Resolves when the data is sored in chrome storage
+     * @returns {Promise<void>} Resolves when the data is stored in chrome storage
      */
     async function saveState(id, state) {
-        console.log(isUpdatingStorage);
         // If another instance is running, wait for it to complete
         if (isUpdatingStorage) {
             setTimeout(() => saveState(id, state), 100);
@@ -149,6 +150,7 @@ const target = {
     title: document.getElementById('title'),
     headerIcon: document.getElementById('header-img'),
     meetForLater: document.getElementById('meet-for-later'),
+    recentMettings: document.getElementById('recent-meetings'),
 
     /**
      * Navigate to saved meetings page
@@ -167,6 +169,7 @@ const target = {
         target.title.textContent = 'Gmeet kit';
         target.showSettingsIcon();
         settingButtom.setAttribute('custom-target', 'settingsPage');
+        target.recentMettings.style.display = 'none';
     },
 
     /**
@@ -185,7 +188,7 @@ const target = {
         target.meetForLater.style.display = 'none';
         target.showBackIcon();
         settingButtom.setAttribute('custom-target', 'savedMeetings');
-
+        target.recentMettings.style.display = 'none';
     },
 
     /**
@@ -200,6 +203,14 @@ const target = {
         target.title.textContent = 'Choose your meeting url';
         target.showRefreshIcon();
         settingButtom.setAttribute('custom-target', 'refreshMeetsForLater');
+    },
+
+    recentMeetingsPage: function () {
+        target.recentMettings.style.display = 'block';
+        target.savedMeets.style.display = 'none';
+        target.meetForLater.style.display = 'block';
+        homeButtom.style.display = 'inline-block';
+        target.title.textContent = 'Last 10 meetings';
     },
 
     /**
@@ -243,4 +254,13 @@ const target = {
     }
 
 }
+
+// Listener for message from content-script.js
+chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === "transcript")
+        storeTranscript(message.data);
+    else if (message.type === "download_transcript")
+        downloadTranscriptAsCSV();
+});
+
 
