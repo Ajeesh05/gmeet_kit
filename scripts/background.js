@@ -29,13 +29,14 @@ chrome.runtime.onConnect.addListener((port) => {
  * @param {number} tabId
  * 
  * @returns {void}
- */
+ */ 
 function sendInitData(tabId) {
-    chrome.storage.sync.get(null, function (result) {
+    chrome.storage.sync.get('settings', function (result) {
         const message = {
             type: "initData",
-            data: result
+            data: result.settings
         };
+        console.log(message);
         chrome.tabs.sendMessage(tabId, message, function (response) {
             if (chrome.runtime.lastError) {
                 console.log(chrome.runtime.lastError.message);

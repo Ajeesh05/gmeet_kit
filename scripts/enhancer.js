@@ -372,6 +372,8 @@
 
         /**
          * Handles click event for confirmation for leaving the meeting
+         * 
+         * @param {event} - event
          */
         confirm: function (event) {
             if (!confirm("Do you want to leave the call?"))

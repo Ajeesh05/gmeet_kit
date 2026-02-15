@@ -16,14 +16,33 @@
 <body>
     <div class="popup">
         <div class="popup-header">
-            <h2>Gmeet kit</h2>
+            <h2 id="title">Saved meetings</h2>
+            <button class="header-button" id="settings-button">
+                <img src="images/previous.png" id="previous" class="icon">
+                <img src="images/setting.png" id="setting" class="icon">
+            </button>
         </div>
         <div class="popup-content">
-            <div class="checkbox-group">
+            <div id="saved-group">
+
+                <div class="links-container" id="linksContainer">
+                    <!-- Dynamic content for links will be added here -->
+                </div>
+
+                <div class="links-container" id="addLinkDiv">
+                    <div class="link-item">
+                        <button id="addLinkBtn" class="add-link-btn">
+                            <img src="images/plus.png" class="icon">
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+            <div class="checkbox-group" id="settings">
                 <div class="checkbox-item">
                     <div class="checkbox-label">
                         <div class="item">
-                            <img src="images/microphone.png" alt="Show Tips" class="icon">
+                            <img src="images/microphone.png" class="icon">
                         </div>
                         <div class="text-content">
                             <strong>Auto Mute</strong>
@@ -31,14 +50,14 @@
                         </div>
                     </div>
                     <div class="checkbox-wrapper-7">
-                        <input type="checkbox" class="tgl tgl-ios" id="auto-mute" name="showtips">
+                        <input type="checkbox" class="tgl tgl-ios" id="auto-mute">
                         <label class="tgl-btn" for="auto-mute"></label>
                     </div>
                 </div>
                 <div class="checkbox-item">
                     <div class="checkbox-label">
                         <div class="item">
-                            <img src="images/video.png" alt="Location" class="icon">
+                            <img src="images/video.png" class="icon">
                         </div>
                         <div class="text-content">
                             <strong>Auto Video Off</strong>
@@ -46,14 +65,14 @@
                         </div>
                     </div>
                     <div class="checkbox-wrapper-7">
-                    <input type="checkbox" class="tgl tgl-ios" id="auto-video-off" name="location">
-                    <label class="tgl-btn" for="auto-video-off"></label>
+                        <input type="checkbox" class="tgl tgl-ios" id="auto-video-off">
+                        <label class="tgl-btn" for="auto-video-off"></label>
                     </div>
                 </div>
                 <div class="checkbox-item">
                     <div class="checkbox-label">
                         <div class="item">
-                            <img src="images/microphone.png" alt="Show Tips" class="icon">
+                            <img src="images/microphone.png" class="icon">
                         </div>
                         <div class="text-content">
                             <strong>Disable Mic</strong>
@@ -61,14 +80,14 @@
                         </div>
                     </div>
                     <div class="checkbox-wrapper-7">
-                    <input type="checkbox" class="tgl tgl-ios" id="disable-mic" name="showtips">
-                    <label class="tgl-btn" for="disable-mic"></label>
+                        <input type="checkbox" class="tgl tgl-ios" id="disable-mic">
+                        <label class="tgl-btn" for="disable-mic"></label>
                     </div>
                 </div>
                 <div class="checkbox-item">
                     <div class="checkbox-label">
                         <div class="item">
-                            <img src="images/video.png" alt="Show Tips" class="icon">
+                            <img src="images/video.png" class="icon">
                         </div>
                         <div class="text-content">
                             <strong>Disable Camera</strong>
@@ -76,14 +95,14 @@
                         </div>
                     </div>
                     <div class="checkbox-wrapper-7">
-                    <input type="checkbox" class="tgl tgl-ios" id="disable-camera" name="showtips">
-                    <label class="tgl-btn" for="disable-camera"></label>
+                        <input type="checkbox" class="tgl tgl-ios" id="disable-camera">
+                        <label class="tgl-btn" for="disable-camera"></label>
                     </div>
                 </div>
                 <div class="checkbox-item">
                     <div class="checkbox-label">
                         <div class="item">
-                            <img src="images/pushToTalk.png" alt="Notifications" class="icon">
+                            <img src="images/pushToTalk.png" class="icon">
                         </div>
                         <div class="text-content">
                             <strong>Push to Talk</strong>
@@ -91,14 +110,14 @@
                         </div>
                     </div>
                     <div class="checkbox-wrapper-7">
-                    <input type="checkbox" class="tgl tgl-ios" id="push-to-talk" name="notifications">
-                    <label class="tgl-btn" for="push-to-talk"></label>
+                        <input type="checkbox" class="tgl tgl-ios" id="push-to-talk">
+                        <label class="tgl-btn" for="push-to-talk"></label>
                     </div>
                 </div>
                 <div class="checkbox-item">
                     <div class="checkbox-label">
                         <div class="item">
-                            <img src="images/autoJoinIcon.png" alt="Dark Mode" class="icon">
+                            <img src="images/autoJoinIcon.png" class="icon">
                         </div>
                         <div class="text-content">
                             <strong>Auto Join</strong>
@@ -106,14 +125,14 @@
                         </div>
                     </div>
                     <div class="checkbox-wrapper-7">
-                    <input type="checkbox" class="tgl tgl-ios" id="auto-join" name="darkmode">
-                    <label class="tgl-btn" for="auto-join"></label>
+                        <input type="checkbox" class="tgl tgl-ios" id="auto-join">
+                        <label class="tgl-btn" for="auto-join"></label>
                     </div>
                 </div>
                 <div class="checkbox-item">
                     <div class="checkbox-label">
                         <div class="item">
-                            <img src="images/leaveConfirmation.png" alt="Auto-Save" class="icon">
+                            <img src="images/leaveConfirmation.png" class="icon">
                         </div>
                         <div class="text-content">
                             <strong>Leave Confirmation</strong>
@@ -121,15 +140,19 @@
                         </div>
                     </div>
                     <div class="checkbox-wrapper-7">
-                    <input type="checkbox" class="tgl tgl-ios" id="leave-confirmation" name="autosave">
-                    <label class="tgl-btn" for="leave-confirmation"></label>
+                        <input type="checkbox" class="tgl tgl-ios" id="leave-confirmation">
+                        <label class="tgl-btn" for="leave-confirmation"></label>
                     </div>
                 </div>
             </div>
         </div>
+        <div>
+            <input type="button" class="icon-btn edit-icon" id="editBtn">
+        </div>
     </div>
     <script src="scripts/popup.js"></script>
     <script src="scripts/designscript.js"></script>
+    <script src="scripts/saved-links.js"></script>
 </body>
 
 </html>

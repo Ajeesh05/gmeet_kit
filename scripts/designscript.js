@@ -12,7 +12,7 @@ const checkboxDivs = document.querySelectorAll('div[class="checkbox-item"]');
 // Click on the outer div to toggle checkbox.
 checkboxDivs.forEach((div) => {
     div.addEventListener('click', function (event) {
-        const checkbox = this.querySelector('input[type="checkbox"]');debugger;
+        const checkbox = this.querySelector('input[type="checkbox"]');
 
         const label = this.querySelector('label[class="tgl-btn"]');
 

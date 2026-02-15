@@ -25,21 +25,44 @@ body {
 }
 
 .popup-header {
+    padding: 10px 20px 20px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.popup-header h2 {
+    margin: 0;
+    flex-grow: 1;
     text-align: center;
-    margin-bottom: 15px;
 }
 
-.popup-content {
-    margin-bottom: 15px;
+.header-button {
+    position: absolute;
+    right: 0;
+    padding: 5px;
+    background-color: transparent;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: transform 0.3s ease;
 }
 
-.checkbox-group {
+
+.header-button:hover {
+    color: black;
+    transform: rotate(45deg) scale(1.1);
+}
+
+.saved-group {
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 
-.checkbox-item {
+.saved-item {
     background-color: #444;
     padding: 10px;
     border-radius: 5px;
@@ -48,6 +71,23 @@ body {
     justify-content: space-between;
     align-items: center;
     transition: background-color 0.3s, border-color 0.3s;
+}
+
+.checkbox-group {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.checkbox-item {
+    background-color: #1f1f1f;
+    padding: 10px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+    transition: background-color 0.2s;
 }
 
 .checkbox-item:hover {
@@ -72,7 +112,7 @@ body {
 
 .text-content strong {
     font-size: 16px;
-    color: #ffff;
+    color: #4CAF50;
 }
 
 .text-content p {
@@ -122,6 +162,32 @@ p {
     padding-left: 5px;
 }
 
+#previous {
+    display: none;
+}
+
+#previous:hover {
+    transform: rotate(-45deg);
+}
+
+/* Scrollbar for WebKit browsers */
+::-webkit-scrollbar {
+    width: 10px; /* Width of the scrollbar */
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: #28a745; /* Green color for the scrollbar thumb */
+    border-radius: 10px; /* Rounded corners */
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: #218838; /* Darker green when hovered */
+}
+
+::-webkit-scrollbar-track {
+    background-color: #f1f1f1; /* Light background for the track */
+    border-radius: 10px; /* Rounded corners for the track */
+}
 
 /* Checkbox style start */
 .checkbox-wrapper-7 .tgl {
@@ -199,7 +265,7 @@ p {
 
 .checkbox-wrapper-7 .tgl-ios+.tgl-btn:after {
     border-radius: 2em;
-    background: #fbfbfb;
+    background: #1f1f1f;
     transition: left 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), padding 0.3s ease, margin 0.3s ease;
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 4px 0 rgba(0, 0, 0, 0.08);
 }
@@ -229,3 +295,136 @@ p {
 }
 
 /* checkbox style end */
+
+
+/* Saved meeting page style start */
+
+.links-container {
+    padding: 0px 20px 0px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.link-item {
+    background-color: #1f1f1f;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+    transition: background-color 0.2s;
+}
+
+.link-item:hover {
+    background-color: #2a2a2a;
+    transform: scale(1.05);
+}
+
+
+.link-edit-input,
+.name-edit-input {
+    color: #4CAF50;
+    font-size: 16px;
+    font-weight: 500;
+    text-align: left;
+    margin-right: auto;
+    border: none;
+    background: transparent;
+}
+
+.link-name {
+    color: #4CAF50;
+    font-size: 18px;
+    font-weight: bold;
+    text-align: left;
+    margin-right: auto;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.link-name:hover {
+    color: #67f76a;
+}
+
+.name-edit-input {
+    background-color: #333;
+    width: 20%;
+    padding: 5px;
+    border-radius: 4px;
+    color: #fff;
+}
+
+.link-edit-input {
+    width: 40%;
+    background-color: #333;
+    padding: 5px;
+    border-radius: 4px;
+    color: #fff;
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    color: #e0e0e0;
+    cursor: pointer;
+    margin-left: 10px;
+    font-size: 18px;
+}
+
+.icon-btn:hover {
+    color: #4CAF50;
+    transform: scale(1.2);
+}
+
+.edit-icon::before {
+    content: '\270E';
+    /* Pencil (edit) icon */
+}
+
+.save-icon::before {
+    content: '\2713';
+    /* Check (save) icon */
+}
+
+.delete-icon::before {
+    content: '\1F5D1';
+    /* Trash (delete) icon */
+}
+
+.add-link-input {
+    width: 40%;
+    padding: 8px;
+    border: none;
+    border-radius: 4px;
+    background-color: #555;
+    color: #fff;
+}
+
+.add-name-input {
+    width: 20%;
+    padding: 8px;
+    border: none;
+    border-radius: 4px;
+    background-color: #555;
+    color: #fff;
+}
+
+.add-link-btn {
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+}
+
+.add-link-btn:hover {
+    transform: scale(1.2);
+}
+
+.add-link-btn .icon {
+    transform: scale(1.2);
+}
+
+/* Saved meeting page style end */
