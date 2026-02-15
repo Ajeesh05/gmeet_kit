@@ -91,8 +91,8 @@ function renderLinks() {
         // If edit mode, render item with inputs, save and delete icon
         if (link.editing) {
             linkItem.innerHTML = `
-                <input type="text" value="${link.name}" class="name-edit-input" id="editName${index}">
-                <input type="text" value="${link.url}" class="link-edit-input" id="editUrl${index}">
+                <input type="text" value="${link.name}" placeholder="name" class="name-edit-input" id="editName${index}">
+                <input type="text" value="${link.url}" placeholder="url" class="link-edit-input" id="editUrl${index}">
                 <button class="icon-btn save-icon" id="saveBtn${index}" aria-label="save"></button>
                 <button class="icon-btn delete-icon" id="deleteBtn${index}" aria-label="delete"></button>
             `;

@@ -208,7 +208,7 @@ const target = {
     recentMeetingsPage: function () {
         target.recentMettings.style.display = 'block';
         target.savedMeets.style.display = 'none';
-        target.meetForLater.style.display = 'block';
+        target.meetForLater.style.display = 'none';
         homeButtom.style.display = 'inline-block';
         target.title.textContent = 'Last 10 meetings';
     },
