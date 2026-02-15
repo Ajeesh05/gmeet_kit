@@ -1,0 +1,135 @@
+<!-- 
+    Author: Ajeesh T
+    Date Created: August 31, 2024
+    Description: This HTML file contains the layout for the popup extension.
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles/popup.css">
+</head>
+
+<body>
+    <div class="popup">
+        <div class="popup-header">
+            <h2>Gmeet kit</h2>
+        </div>
+        <div class="popup-content">
+            <div class="checkbox-group">
+                <div class="checkbox-item">
+                    <div class="checkbox-label">
+                        <div class="item">
+                            <img src="images/microphone.png" alt="Show Tips" class="icon">
+                        </div>
+                        <div class="text-content">
+                            <strong>Auto Mute</strong>
+                            <p>Automatically mute microphone.</p>
+                        </div>
+                    </div>
+                    <div class="checkbox-wrapper-7">
+                        <input type="checkbox" class="tgl tgl-ios" id="auto-mute" name="showtips">
+                        <label class="tgl-btn" for="auto-mute"></label>
+                    </div>
+                </div>
+                <div class="checkbox-item">
+                    <div class="checkbox-label">
+                        <div class="item">
+                            <img src="images/video.png" alt="Location" class="icon">
+                        </div>
+                        <div class="text-content">
+                            <strong>Auto Video Off</strong>
+                            <p>Automatically turn off video.</p>
+                        </div>
+                    </div>
+                    <div class="checkbox-wrapper-7">
+                    <input type="checkbox" class="tgl tgl-ios" id="auto-video-off" name="location">
+                    <label class="tgl-btn" for="auto-video-off"></label>
+                    </div>
+                </div>
+                <div class="checkbox-item">
+                    <div class="checkbox-label">
+                        <div class="item">
+                            <img src="images/microphone.png" alt="Show Tips" class="icon">
+                        </div>
+                        <div class="text-content">
+                            <strong>Disable Mic</strong>
+                            <p>Mute and disable mic after joining the meet.</p>
+                        </div>
+                    </div>
+                    <div class="checkbox-wrapper-7">
+                    <input type="checkbox" class="tgl tgl-ios" id="disable-mic" name="showtips">
+                    <label class="tgl-btn" for="disable-mic"></label>
+                    </div>
+                </div>
+                <div class="checkbox-item">
+                    <div class="checkbox-label">
+                        <div class="item">
+                            <img src="images/video.png" alt="Show Tips" class="icon">
+                        </div>
+                        <div class="text-content">
+                            <strong>Disable Camera</strong>
+                            <p>Turn off and disable camera after joining the meet</p>
+                        </div>
+                    </div>
+                    <div class="checkbox-wrapper-7">
+                    <input type="checkbox" class="tgl tgl-ios" id="disable-camera" name="showtips">
+                    <label class="tgl-btn" for="disable-camera"></label>
+                    </div>
+                </div>
+                <div class="checkbox-item">
+                    <div class="checkbox-label">
+                        <div class="item">
+                            <img src="images/pushToTalk.png" alt="Notifications" class="icon">
+                        </div>
+                        <div class="text-content">
+                            <strong>Push to Talk</strong>
+                            <p>Hold space to unmute or mute.</p>
+                        </div>
+                    </div>
+                    <div class="checkbox-wrapper-7">
+                    <input type="checkbox" class="tgl tgl-ios" id="push-to-talk" name="notifications">
+                    <label class="tgl-btn" for="push-to-talk"></label>
+                    </div>
+                </div>
+                <div class="checkbox-item">
+                    <div class="checkbox-label">
+                        <div class="item">
+                            <img src="images/autoJoinIcon.png" alt="Dark Mode" class="icon">
+                        </div>
+                        <div class="text-content">
+                            <strong>Auto Join</strong>
+                            <p>Join the meeting automatically.</p>
+                        </div>
+                    </div>
+                    <div class="checkbox-wrapper-7">
+                    <input type="checkbox" class="tgl tgl-ios" id="auto-join" name="darkmode">
+                    <label class="tgl-btn" for="auto-join"></label>
+                    </div>
+                </div>
+                <div class="checkbox-item">
+                    <div class="checkbox-label">
+                        <div class="item">
+                            <img src="images/leaveConfirmation.png" alt="Auto-Save" class="icon">
+                        </div>
+                        <div class="text-content">
+                            <strong>Leave Confirmation</strong>
+                            <p>Ask to confirm when you leave a meeting.</p>
+                        </div>
+                    </div>
+                    <div class="checkbox-wrapper-7">
+                    <input type="checkbox" class="tgl tgl-ios" id="leave-confirmation" name="autosave">
+                    <label class="tgl-btn" for="leave-confirmation"></label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="scripts/popup.js"></script>
+    <script src="scripts/designscript.js"></script>
+</body>
+
+</html>
