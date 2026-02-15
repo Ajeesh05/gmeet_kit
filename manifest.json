@@ -1,6 +1,6 @@
 {
     "name": "Gmeet kit: Auto-mute, Disable-camera, Save recent meetings & much more",
-    "version": "2.2.2",
+    "version": "2.3.0",
     "manifest_version": 3,
     "minimum_chrome_version": "120",
     "description": "Enhance Your Google Meet Experience",
@@ -28,6 +28,15 @@
             ],
             "run_at": "document_start",
             "all_frames": false
+        },
+        {
+            "js": [
+                "scripts/fullscreen.js"
+            ],
+            "matches": [
+                "https://meet.google.com/*"
+            ],
+            "run_at": "document_idle"
         }
     ],
     "background": {
@@ -37,7 +46,8 @@
         {
             "resources": [
                 "scripts/content-script.js",
-                "scripts/enhancer.js"
+                "scripts/enhancer.js",
+                "scripts/fullscreen.js"
             ],
             "matches": [
                 "https://meet.google.com/*"

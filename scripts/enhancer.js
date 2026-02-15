@@ -459,7 +459,7 @@ const meetingId = Date.now().toString(36) + Math.random().toString(36).substr(2,
                 const uniqueTag = user.querySelector(`img`).dataset.iml;
 
                 // Get all messages (inside the `bh44bd` class)
-                const messages = Array.from(user.querySelectorAll('.bh44bd span')).map(span =>
+                const messages = Array.from(user.querySelectorAll('.ygicle')).map(span =>
                     span.textContent.trim()
                 );
 
@@ -512,6 +512,138 @@ const meetingId = Date.now().toString(36) + Math.random().toString(36).substr(2,
                 // console.log(transcript.transcript);
 
             }, 500);
+        }
+
+    };
+
+
+    const chat = {
+
+        storeMessages: function () {
+
+            const chatContainer = document.querySelector('[jsname="xySENc"]');
+            const chatItems = [];
+            let skeletonHTML = null;
+
+            chatContainer.querySelectorAll('[jsname="Ypafjf"]').forEach((msgBlock, index) => {
+                const name = msgBlock.querySelector('.poVWob')?.textContent.trim() || '';
+                const time = msgBlock.querySelector('[jsname="biJjHb"]')?.textContent.trim() || '';
+
+                const beTDc = msgBlock.querySelector('.beTDc');
+
+                if (!beTDc) return;
+
+                // Extract each message inside `.beTDc`
+                const messageDivs = beTDc.querySelectorAll('[jsname="dTKtvb"] > div');
+                messageDivs.forEach(msgEl => {
+                    const message = msgEl?.textContent.trim() || '';
+                    chatItems.push({ name, time, message });
+                });
+
+                // Save one cleaned-up skeleton from first `.beTDc`
+                if (skeletonHTML === null && beTDc) {
+                    const beTDcClone = beTDc.cloneNode(true);
+
+                    // Remove all dynamic message text and elements with class "Sd72u"
+                    beTDcClone.querySelectorAll('.Sd72u').forEach(el => el.remove());
+                    beTDcClone.querySelectorAll('[jsname="dTKtvb"] > div').forEach(div => {
+                        div.textContent = '{message}';
+                    });
+
+                    skeletonHTML = beTDcClone.outerHTML;
+                }
+            });
+
+            console.log('Stored messages:', chatItems);
+            console.log('Message skeleton:', skeletonHTML);
+
+
+        },
+
+        recordMessage: function () {
+
+            const targetNode = document.querySelector('[jsname="xySENc"]');
+
+            const observer = new MutationObserver((mutationsList) => {
+                for (const mutation of mutationsList) {
+                    if (mutation.type === 'childList') {
+                        chat.storeMessages();
+                    }
+                }
+            });
+
+            if(!targetNode)
+                return;
+
+            observer.observe(targetNode, {
+                childList: true,
+                subtree: true // This ensures changes inside children are also observed
+            });
+        },
+
+        restore: function (messages, skeletonHTML, container) {
+            messages.forEach(({ name, time, message }) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'Ss4fHf';
+
+                wrapper.innerHTML = `
+                    <div class="HNucUd">
+                        <div class="poVWob">${name}</div>
+                        <div class="MuzmKe">${time}</div>
+                    </div>
+                    ${skeletonHTML.replace('{message}', message)}
+                `;
+
+                container.appendChild(wrapper);
+            });
+
+        }
+    };
+
+
+
+    const profile = {
+
+
+        getMoreOptions: function () {
+            return moreOptionsDiv = document.querySelector(`[jsname="JS8eVc"]`);
+        },
+
+
+        minimize: function () {
+            
+            const moreOptionsDiv = profile.getMoreOptions();
+
+            if(!moreOptionsDiv)
+                return;
+
+            const moreOptionsButton = moreOptionsDiv.querySelector('button[aria-label="More options"]');
+
+            if(!moreOptionsButton)
+                return;
+
+            moreOptionsButton.click();
+
+            const minimizeLi = document.querySelector('li[aria-label="Minimize"]')
+
+            if(!minimizeLi)
+                return;
+
+            minimizeLi.click();
+        },
+
+        isMinimized: function () {
+            return document.querySelector('button[aria-label="Expand"]')
+        },
+
+
+        /**
+         * Turns off mic with setTimeout
+         */
+        minimizeTimeout: function () {
+            profile.minimize();
+            if (!join.ready() || !profile.isMinimized())
+                setTimeout(profile.minimizeTimeout, 1000);
         }
 
     };
@@ -681,6 +813,10 @@ const meetingId = Date.now().toString(36) + Math.random().toString(36).substr(2,
         transcript.recordTranscript();
 
         leave.addHashListener();
+
+        // chat.recordMessage();
+
+        profile.minimizeTimeout();
 
     }
 
