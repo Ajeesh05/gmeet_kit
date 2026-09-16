@@ -1,4 +1,3 @@
 [
-  "minimum-chrome-version|scripts/background.js uses chrome.sidePanel, which needs Chrome 114, but minimum_chrome_version is 88",
   "undeclared-permission|scripts/sidebar.js uses chrome.scripting, but \"scripting\" is not in permissions - the call will fail at runtime"
 ]
