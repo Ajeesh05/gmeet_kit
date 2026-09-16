@@ -1,0 +1,23 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Meet stub</title>
+<!--
+  Stands in for a Google Meet call page.
+
+  Meet's real DOM is generated and its class names are obfuscated, so this does
+  not attempt to reproduce the controls enhancer.js drives. What it does
+  reproduce is the integration boundary the extension owns: the page origin the
+  content scripts match on, and the window.postMessage channel ports.js uses to
+  hand settings to enhancer.js in the page's own context.
+-->
+<h1>Meet stub</h1>
+<div id="received"></div>
+<script>
+  window.__received = []
+  window.addEventListener('message', event => {
+    if (!event.data || !event.data.type) return
+    window.__received.push(event.data)
+    document.getElementById('received').dataset.count = String(window.__received.length)
+    document.getElementById('received').dataset.last = event.data.type
+  })
+</script>

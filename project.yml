@@ -1,0 +1,40 @@
+name: gmeet-kit
+type: chrome-extension
+
+# audit   - propose findings only, never write code
+# propose - may implement, always via a PR you review
+# full    - may implement and auto-merge on green CI
+#
+# audit, and it should stay there until the lint baseline reaches zero.
+# scripts/sidebar.js calls normalizeMeetingId, which is defined nowhere in the
+# codebase, so tryLoadRecentLiveSession throws a ReferenceError today. A project
+# with a known crash in it is not a project to point an autonomous agent at.
+autonomy: audit
+
+source:
+  root: .
+
+store:
+  publisher_id: null   # awaiting D1
+  item_id: null        # awaiting D1
+
+permissions:
+  baseline:
+    - activeTab
+    - storage
+    - sidePanel
+    - tabs
+  host_baseline: []
+
+test:
+  unit: true
+  e2e: true
+  # E2E serves a stub over https at meet.google.com via --host-resolver-rules;
+  # the real Meet requires a login and automating it would breach Google's ToS.
+  e2e_notes: local-https-stub
+
+versioning:
+  strategy: semver
+
+retry:
+  max_dispatches: 2
