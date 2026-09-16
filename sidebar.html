@@ -1,0 +1,38 @@
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Gmeet Kit — Side Panel</title>
+    <link rel="stylesheet" href="styles/sidebar.css">
+
+</head>
+
+<div class="sidepanel">
+    <div class="menu">
+        <button class="active" data-tab="transcript">Live Transcript</button>
+        <button data-tab="history">History</button>
+        <button data-tab="settings">Settings</button>
+    </div>
+
+    <div class="content-area">
+        <div id="historyList" class="history-list" style="display:none"></div>
+        <main id="content"></main>
+    </div>
+
+    <div class="controls" id="controls">
+        <input id="search" placeholder="Search transcript..." />
+        <select id="speakerFilter">
+            <option value="">All Speakers</option>
+        </select>
+        <button id="copyAll">Copy</button>
+        <button id="export">Export</button>
+    </div>
+
+</div>
+
+<script src="scripts/sidebar.js"></script>
+
+</body>
+
+</html>

@@ -20,10 +20,6 @@ chrome.runtime.onConnect.addListener((port) => {
 
             if (message.type == 'init')
                 findTabsBySubdomain("meet.google.com");
-            else if (["transcript"].includes(message.type))
-                storeTranscript(message.data);
-            else if (message.type == 'download_transcript')
-                downloadTranscriptAsCSV(message.data)
 
             // sendMessageOnActivated("meet.google.com");
         }
@@ -268,3 +264,57 @@ chrome.runtime.onStartup.addListener(() => {
 // chrome.storage.sync.remove("recentMeetings", function() {
 //     console.log("Greeting removed!");
 // });
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResp) => {
+    if (msg?.action === 'requestEnableSidePanel') {
+        const tabId = sender?.tab?.id;
+        if (!tabId) { sendResp({ ok: false, error: 'no_tab' }); return; }
+        chrome.sidePanel.setOptions({ tabId, path: 'sidebar.html', enabled: true }, () => {
+            if (chrome.runtime.lastError) return sendResp({ ok: false, error: chrome.runtime.lastError.message });
+            sendResp({ ok: true });
+        });
+        return true; // keep async
+    }
+});
+
+
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+    try {
+        const tab = await chrome.tabs.get(activeInfo.tabId);
+        handleTabChange(tab);
+    } catch (e) {
+        console.error('Error in onActivated:', e);
+    }
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.status === 'complete') {
+        handleTabChange(tab);
+    }
+});
+
+async function handleTabChange(tab) {
+    if (!tab || !tab.url) return;
+
+    try {
+        if (tab.url.startsWith('https://meet.google.com/')) {
+            // Enable side panel when user is on Google Meet
+            await chrome.sidePanel.setOptions({ tabId: tab.id, path: 'sidebar.html', enabled: true });
+            console.log('Gmeet Kit side panel enabled for Meet tab');
+        } else {
+            // Disable (auto-close) side panel when switching away
+            await chrome.sidePanel.setOptions({ tabId: tab.id, enabled: false });
+            console.log('Gmeet Kit side panel disabled for non-Meet tab');
+        }
+    } catch (err) {
+        console.error('Error toggling side panel:', err);
+    }
+}
+
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg.type === "wake_up") {
+        sendResponse({ ok: true });
+    }
+});
+

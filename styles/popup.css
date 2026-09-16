@@ -32,7 +32,7 @@ body {
 }
 
 .home-svg {
-    fill:#4CAF50;
+    fill: #4CAF50;
 }
 
 .header-button-right {
@@ -182,21 +182,27 @@ p {
 
 /* Scrollbar for WebKit browsers */
 ::-webkit-scrollbar {
-    width: 5px; /* Width of the scrollbar */
+    width: 5px;
+    /* Width of the scrollbar */
 }
 
 ::-webkit-scrollbar-thumb {
-    background-color: #28a745; /* Green color for the scrollbar thumb */
-    border-radius: 10px; /* Rounded corners */
+    background-color: #28a745;
+    /* Green color for the scrollbar thumb */
+    border-radius: 10px;
+    /* Rounded corners */
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background-color: #218838; /* Darker green when hovered */
+    background-color: #218838;
+    /* Darker green when hovered */
 }
 
 ::-webkit-scrollbar-track {
-    background-color: #f1f1f1; /* Light background for the track */
-    border-radius: 10px; /* Rounded corners for the track */
+    background-color: #f1f1f1;
+    /* Light background for the track */
+    border-radius: 10px;
+    /* Rounded corners for the track */
 }
 
 /* Checkbox style start */
@@ -360,6 +366,19 @@ p {
     color: #67f76a;
 }
 
+.disabled-item {
+    opacity: 0.4;
+    pointer-events: auto;
+    /* allow hover for tooltip */
+    cursor: not-allowed;
+}
+
+.disabled-item:hover {
+    transform: none !important;
+    background-color: #1f1f1f;
+    /* no hover effect */
+}
+
 .name-edit-input {
     background-color: #333;
     width: 20%;
@@ -392,13 +411,17 @@ p {
 
 /* Tooltip container */
 .icon-btn::after {
-    content: attr(aria-label); /* Use ARIA label for accessibility */
+    content: attr(aria-label);
+    /* Use ARIA label for accessibility */
     position: absolute;
-    top: -30px; /* Adjust for positioning above the icon */
+    top: -30px;
+    /* Adjust for positioning above the icon */
     left: 50%;
     transform: translateX(-50%);
-    background-color: #333; /* Background color for the tooltip */
-    color: #fff; /* Text color */
+    background-color: #333;
+    /* Background color for the tooltip */
+    color: #fff;
+    /* Text color */
     padding: 5px 8px;
     font-size: 12px;
     border-radius: 4px;

@@ -4,7 +4,6 @@
  * @author Ajeesh T
  * @date 2024-08-31
  */
-const meetingId = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 
 (function () {
 
@@ -439,84 +438,6 @@ const meetingId = Date.now().toString(36) + Math.random().toString(36).substr(2,
         }
     };
 
-
-    const transcript = {
-
-        transcript: {},
-
-        getCaptions: function () {
-
-            let result = {};
-
-            const captionDiv = document.querySelector(`[jsname="dsyhDe"]`);
-
-            const childDivArray = Array.from(captionDiv.children).filter(child => child.tagName === 'DIV');
-
-            childDivArray && childDivArray.forEach(user => {
-                // Get the username (inside the `KcIKyf` class)
-                const username = user.getElementsByClassName('KcIKyf')[0]?.textContent?.trim();
-
-                const uniqueTag = user.querySelector(`img`).dataset.iml;
-
-                // Get all messages (inside the `bh44bd` class)
-                const messages = Array.from(user.querySelectorAll('.ygicle')).map(span =>
-                    span.textContent.trim()
-                );
-
-                // Add the username and their messages to the result object
-                if (username)
-                    result[uniqueTag] = { user: username, text: messages };
-
-            });
-
-            return result;
-        },
-
-        recordTranscript: function () {
-
-            let captions = {};
-            let lastKey = {};
-            let lastRecordedTime = {};
-
-            setInterval(() => {
-
-                captions = transcript.getCaptions();
-
-                for (let key in captions) {
-
-                    user = captions[key]['user'];
-
-                    if (lastKey[user] != key) {
-
-                        lastRecordedTime[user] = common.getCurrentTime();
-
-                        lastKey[user] = key;
-                    }
-
-                    transcript.transcript[lastRecordedTime[user]] = {
-                        user: user,
-                        text: captions[key]['text']
-                    };
-
-
-                    data = JSON.stringify({
-                        meetingId: meetingId,
-                        user: user,
-                        text: captions[key]['text'],
-                        time: lastRecordedTime[user]
-                    });
-
-                    window.postMessage({ type: "transcript", data }, "*");
-                }
-
-                // console.log(transcript.transcript);
-
-            }, 500);
-        }
-
-    };
-
-
     const chat = {
 
         storeMessages: function () {
@@ -810,8 +731,6 @@ const meetingId = Date.now().toString(36) + Math.random().toString(36).substr(2,
         if (initSettings['leave-confirmation'])
             leave.confirmation();
 
-        transcript.recordTranscript();
-
         leave.addHashListener();
 
         // chat.recordMessage();
@@ -835,7 +754,3 @@ const meetingId = Date.now().toString(36) + Math.random().toString(36).substr(2,
     }
 
 })();
-
-function downloadTranscript() {
-    window.postMessage({ type: "download_transcript", data: meetingId }, "*");
-}

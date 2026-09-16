@@ -1,0 +1,392 @@
+:root {
+    --gk-green: #16a085;
+    --gk-green-light: #1abc9c;
+    --gk-bg: #0f1413;
+    --gk-panel: #141518;
+    --gk-text: #e8f8f3;
+    --gk-muted: #9aa7a3;
+    --radius: 10px;
+}
+
+* {
+    box-sizing: border-box;
+    font-family: Inter, sans-serif;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--gk-bg);
+    color: var(--gk-text);
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--gk-panel);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--gk-green);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--gk-green-light);
+}
+
+.sidepanel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    background: var(--gk-panel);
+    border-left: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.menu {
+    display: flex;
+    gap: 4px;
+    padding: 6px;
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.menu button {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--gk-muted);
+    padding: 10px;
+    cursor: pointer;
+    border-radius: 8px;
+}
+
+.menu button.active {
+    color: var(--gk-green);
+    background: linear-gradient(90deg, rgba(22, 160, 133, 0.06), transparent);
+}
+
+.content-area {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.history-list {
+    width: 100%;
+    border-right: 1px solid rgba(255, 255, 255, 0.03);
+    overflow: auto;
+    padding: 10px;
+    gap: 8px;
+    display: flex;
+    flex-direction: column;
+}
+
+.history-card {
+    background: rgba(255, 255, 255, 0.02);
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: background 0.3s ease;
+}
+
+.history-card:hover {
+    background: rgba(22, 160, 133, 0.1);
+}
+
+.history-meetid {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gk-green-light);
+}
+
+.history-meta {
+    font-size: 13px;
+    color: var(--gk-text);
+    opacity: 0.85;
+}
+
+main {
+    flex: 1;
+    overflow: auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+    opacity: 1;
+    transition: opacity 0.25s ease;
+}
+
+.controls-top {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.auto-record {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--gk-text);
+}
+
+.auto-record input {
+    width: 16px;
+    height: 16px;
+}
+
+.recorder-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: var(--gk-text);
+    padding: 6px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.recorder-btn.active {
+    background: linear-gradient(90deg, rgba(22, 160, 133, 0.12), rgba(255, 255, 255, 0.02));
+    border-color: var(--gk-green);
+}
+
+.message {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 8px;
+    border-radius: var(--radius);
+    max-width: 85%;
+}
+
+.message.self {
+    margin-left: auto;
+    background: linear-gradient(180deg, rgba(22, 160, 133, 0.15), rgba(22, 160, 133, 0.1));
+    flex-direction: row-reverse;
+}
+
+.message.other {
+    margin-right: auto;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.bubble {
+    flex: 1;
+}
+
+.meta {
+    font-size: 12px;
+    color: var(--gk-muted);
+    margin-bottom: 4px;
+}
+
+.text {
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.go-live-wrapper {
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 1000;
+}
+
+.go-live {
+    background: var(--gk-green);
+    color: #fff;
+    border: none;
+    border-radius: 30px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    transition: 0.3s ease;
+}
+
+.go-live:hover {
+    background: var(--gk-green-light);
+    transform: translateY(-2px);
+}
+
+.controls {
+    display: none;
+    gap: 6px;
+    padding: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.controls.visible {
+    display: flex;
+}
+
+.controls input {
+    flex: 1;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: transparent;
+    color: var(--gk-text);
+}
+
+.controls button {
+    background: var(--gk-green);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+.settings-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius);
+    margin-top: 10px;
+}
+
+.toggle {
+    position: relative;
+    width: 40px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    cursor: pointer;
+    transition: 0.3s ease;
+}
+
+.toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: var(--gk-text);
+    border-radius: 50%;
+    transition: 0.3s ease;
+}
+
+.toggle.active {
+    background: var(--gk-green);
+}
+
+.toggle.active::after {
+    transform: translateX(20px);
+    background: #fff;
+}
+
+.empty {
+    color: var(--gk-muted);
+    padding: 10px;
+    text-align: center;
+}
+
+.meeting-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.meeting-title {
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--gk-text);
+}
+
+.meeting-sub {
+    font-size: 12px;
+    color: var(--gk-muted);
+}
+
+.history-back {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--gk-text);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: 0.2s;
+}
+
+.history-back:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.controls input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--gk-text);
+    transition: 0.2s ease;
+}
+
+.controls input:focus {
+    border-color: var(--gk-green);
+    box-shadow: 0 0 6px rgba(22, 160, 133, 0.6);
+    outline: none;
+}
+
+/* Speaker Filter Dropdown */
+.controls select {
+    appearance: none;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--gk-text);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: 0.2s ease;
+}
+
+/* Hover */
+.controls select:hover {
+    border-color: var(--gk-green-light);
+}
+
+/* Focus glow */
+.controls select:focus {
+    border-color: var(--gk-green);
+    box-shadow: 0 0 6px rgba(22, 160, 133, 0.6);
+    outline: none;
+}
+
+/* Dropdown arrow styling */
+.controls select {
+    background-image: url("data:image/svg+xml,%3Csvg fill='%23e8f8f3' xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 14px;
+    padding-right: 30px;
+}
+
+/* On dark UI dropdown list */
+.controls select option {
+    background: var(--gk-panel);
+    color: var(--gk-text);
+}

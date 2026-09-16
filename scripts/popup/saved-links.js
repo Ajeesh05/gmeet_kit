@@ -53,6 +53,17 @@ function renderLinks() {
     linksContainer.appendChild(recentMeetings);
 
 
+    // For sidepanel
+    const sidePanel = document.createElement('div');
+    sidePanel.className = 'link-item';
+    sidePanel.innerHTML = `
+        <a href="" target="_blank" class="link-name">Open transcript</a>
+        <img src="images/angle-small-right.svg" class="icon">
+    `;
+    linksContainer.appendChild(sidePanel);
+    setupSidePanelButton(sidePanel);
+
+
     const savedMeetings = document.createElement('div');
     savedMeetings.innerHTML = `<h3>Saved meetings<h3>`;
     linksContainer.appendChild(savedMeetings);
@@ -97,13 +108,13 @@ function renderLinks() {
             `;
 
             linkItem.addEventListener('keydown', function (event) {
-                if(event.key === 'Enter') {
+                if (event.key === 'Enter') {
                     event.preventDefault();
                     saveLink(index);
                 }
             })
 
-            
+
             // If non-edit mode, render item with edit and delete icon
         } else {
             linkItem.innerHTML = `
@@ -422,6 +433,63 @@ async function openRecentMeetings() {
     }
 }
 
+// Check Chrome version & Meet URL — then update UI
+async function setupSidePanelButton(linkItem) {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    const chromeVersion = parseInt(/Chrome\/(\d+)/.exec(navigator.userAgent)[1]);
+    const isMeetURL = tab.url.startsWith("https://meet.google.com/");
+
+    if (chromeVersion < 116) {
+        // Disable — Chrome too old
+        linkItem.classList.add("disabled-item");
+        linkItem.title = "Transcript is not supported in Chrome versions below 116.";
+        linkItem.onclick = (e) => e.preventDefault();
+        return;
+    }
+
+    if (!isMeetURL) {
+        // Disable — Not on a Meet page
+        linkItem.classList.add("disabled-item");
+        linkItem.title = "Transcript is only available on Google Meet pages.";
+        linkItem.onclick = (e) => e.preventDefault();
+        return;
+    }
+
+    // Enable click
+    linkItem.onclick = (e) => {
+        e.preventDefault();
+        openSidePanel();
+    };
+}
+
+
+/**
+ * Opens side panal
+ * 
+ * @async
+ * @returns {void}
+ */
+async function openSidePanel() {
+    try {
+        // Get the active tab
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+        // Enable the side panel for that tab
+        await chrome.sidePanel.setOptions({
+            tabId: tab.id,
+            path: "sidebar.html",
+            enabled: true
+        });
+
+        // Open it — allowed because we are inside a popup click (user gesture)
+        await chrome.sidePanel.open({ tabId: tab.id });
+
+        window.close(); // optional: close popup once opened
+    } catch (err) {
+        console.error("Failed to open side panel:", err);
+    }
+}
 
 /**
  * Get recent meetings from chrome storage

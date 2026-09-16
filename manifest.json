@@ -2,8 +2,10 @@
     "name": "Gmeet kit: Auto-mute, Disable-camera, Save recent meetings & much more",
     "version": "2.3.0",
     "manifest_version": 3,
-    "minimum_chrome_version": "120",
+    "minimum_chrome_version": "88",
     "description": "Enhance Your Google Meet Experience",
+    "author": "Ajeesh T",
+    "homepage_url": "https://ajeesh05.github.io/gmeet_kit/",
     "incognito": "split",
     "action": {
         "default_popup": "popup.html"
@@ -11,6 +13,7 @@
     "permissions": [
         "activeTab",
         "storage",
+        "sidePanel",
         "tabs"
     ],
     "icons": {
@@ -24,14 +27,16 @@
                 "https://meet.google.com/*"
             ],
             "js": [
-                "scripts/content-script.js"
+                "scripts/content-scripts/inject-scripts.js",
+                "scripts/content-scripts/ports.js"
             ],
             "run_at": "document_start",
             "all_frames": false
         },
         {
             "js": [
-                "scripts/fullscreen.js"
+                "scripts/content-scripts/fullscreen.js",
+                "scripts/content-scripts/caption-recorder.js"
             ],
             "matches": [
                 "https://meet.google.com/*"
@@ -45,9 +50,7 @@
     "web_accessible_resources": [
         {
             "resources": [
-                "scripts/content-script.js",
-                "scripts/enhancer.js",
-                "scripts/fullscreen.js"
+                "scripts/enhancer.js"
             ],
             "matches": [
                 "https://meet.google.com/*"
