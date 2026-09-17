@@ -15,8 +15,8 @@ source:
   root: .
 
 store:
-  publisher_id: null   # awaiting D1
-  item_id: null        # awaiting D1
+  publisher_id: "256487ad-a5b8-4f55-a685-1070701ad9ba"
+  item_id: "mdoigaefpjglamcdlailnincbmfomlkj"
 
 permissions:
   baseline:
