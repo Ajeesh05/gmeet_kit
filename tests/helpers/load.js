@@ -7,7 +7,7 @@ export const BACKGROUND_PATH = fileURLToPath(new URL('../../scripts/background.j
 /**
  * Fresh service worker + chrome mock per test.
  *
- * background.js starts a 1-second setInterval at module scope, so the caller
+ * background.js starts a heartbeat setInterval at module scope, so the caller
  * must install fake timers BEFORE calling this or the interval runs for real
  * and the suite never settles.
  */
@@ -15,7 +15,7 @@ export function loadBackground(mockOptions = {}) {
   const chrome = createChromeMock(mockOptions)
   const sw = loadServiceWorker(BACKGROUND_PATH, {
     chrome,
-    expose: ['MEETING_REGEX', 'meetingSessions']
+    expose: ['MEETING_REGEX', 'meetingIdFromUrl', 'meetingSessions', 'DEFAULT_SETTINGS']
   })
   return { chrome, sw, consts: sw.__exposed }
 }

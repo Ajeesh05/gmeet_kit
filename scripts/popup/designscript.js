@@ -80,7 +80,11 @@ checkboxWrappers.forEach((div) => {
     div.addEventListener('keydown', function (event) {
         if (event.key === ' ' || event.key === 'Enter') {
             event.preventDefault(); // Prevent page scrolling
-            checkbox.checked = !checkbox.checked; // Toggle the checkbox state
+
+            // click(), not checked = !checked. Assigning the property does not
+            // fire a change event, so the keyboard path used to flip the switch
+            // on screen while never saving it or telling the meeting about it.
+            checkbox.click();
         }
     });
 });

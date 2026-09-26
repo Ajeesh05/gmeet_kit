@@ -4,14 +4,47 @@
 <!--
   Stands in for a Google Meet call page.
 
-  Meet's real DOM is generated and its class names are obfuscated, so this does
-  not attempt to reproduce the controls enhancer.js drives. What it does
-  reproduce is the integration boundary the extension owns: the page origin the
-  content scripts match on, and the window.postMessage channel ports.js uses to
-  hand settings to enhancer.js in the page's own context.
+  It reproduces the integration boundary the extension owns - the page origin
+  the content scripts match on, and the window.postMessage channel ports.js
+  uses to hand settings to enhancer.js - plus the call controls enhancer.js
+  actually drives.
+
+  Each control carries the same three signals real Meet gives, so the layered
+  lookups in scripts/meet-dom.js are all exercised:
+
+    - a Material Symbols ligature in a .notranslate node ("mic_off"),
+    - the keyboard shortcut written into the label ("(ctrl + d)"),
+    - an accessible name.
+
+  Generated values like UywwFc-RLmnJb or OMfBQ are deliberately absent: they
+  are build output, they have already moved once, and nothing should depend on
+  them. jsname appears only where meet-dom.js keeps it as a last-resort layer.
+
+  This is still a stand-in. It cannot tell you that Meet has renamed something,
+  only that the extension behaves correctly against the shape recorded here.
+  Captured from a real call on 2026-09-22.
 -->
 <h1>Meet stub</h1>
 <div id="received"></div>
+
+<div id="lobby">
+  <div class="tile" data-participant-id="self"><video muted></video></div>
+  <button id="mic" data-kind="mic" aria-label="Turn off microphone (ctrl + d)"><i class="google-symbols notranslate">mic</i></button>
+  <button id="cam" data-kind="cam" aria-label="Turn off camera (ctrl + e)"><i class="google-symbols notranslate">videocam</i></button>
+  <button id="join" disabled>Join now</button>
+</div>
+
+<div id="call" hidden>
+  <div class="tile" data-participant-id="self" data-self-name="You"><video muted></video></div>
+  <div class="tile" data-participant-id="p1"><video></video></div>
+  <button id="cmic" data-kind="mic" aria-label="Turn off microphone (ctrl + d)"><i class="google-symbols notranslate">mic</i></button>
+  <button id="ccam" data-kind="cam" aria-label="Turn off camera (ctrl + e)"><i class="google-symbols notranslate">videocam</i></button>
+  <button id="cc" jsname="RrG0hf" aria-label="Turn on captions"><i class="google-symbols notranslate">closed_caption_off</i></button>
+  <button id="jump" aria-label="Jump to most recent captions"><i class="google-symbols notranslate">arrow_downward</i></button>
+  <button id="leave" aria-label="Leave call"><i class="google-symbols notranslate">call_end</i></button>
+  <input id="chatbox" placeholder="Send a message to everyone">
+</div>
+
 <script>
   window.__received = []
   window.addEventListener('message', event => {
@@ -20,4 +53,98 @@
     document.getElementById('received').dataset.count = String(window.__received.length)
     document.getElementById('received').dataset.last = event.data.type
   })
+
+  // ?strip=jsname,labels,icons,shortcuts simulates a Meet rebuild: the named
+  // signals are removed so the remaining layers in meet-dom.js have to carry
+  // the extension on their own.
+  const strip = new Set((new URLSearchParams(location.search).get('strip') || '').split(',').filter(Boolean))
+  const localise = new URLSearchParams(location.search).get('lang')
+
+  const log = []
+  window.__meetLog = log
+  const state = { mic: 'on', cam: 'on', joined: false }
+
+  const paint = () => {
+    for (const b of document.querySelectorAll('[data-kind]')) {
+      const kind = b.dataset.kind
+      const noun = kind === 'mic' ? 'microphone' : 'camera'
+      const key = kind === 'mic' ? 'd' : 'e'
+      const on = state[kind] === 'on'
+      // Meet labels the button with the action it performs, not the state -
+      // while the icon shows the state itself. Both are reproduced because
+      // meet-dom.js reads the icon in preference to the label.
+      let label = (on ? 'Turn off ' : 'Turn on ') + noun
+      if (localise === 'de') label = (kind === 'mic' ? 'Mikrofon' : 'Kamera') + (on ? ' ausschalten' : ' einschalten')
+      if (localise === 'ja') label = (kind === 'mic' ? 'マイク' : 'カメラ') + (on ? 'をオフにする' : 'をオンにする')
+      if (!strip.has('shortcuts')) label += ' (ctrl + ' + key + ')'
+      if (strip.has('labels')) b.removeAttribute('aria-label')
+      else b.setAttribute('aria-label', label)
+
+      const icon = b.querySelector('i')
+      const base = kind === 'mic' ? 'mic' : 'videocam'
+      if (icon) icon.textContent = on ? base : base + '_off'
+    }
+  }
+
+  for (const b of document.querySelectorAll('[data-kind]')) {
+    b.addEventListener('click', () => {
+      if (b.disabled) return
+      const kind = b.dataset.kind
+      state[kind] = state[kind] === 'on' ? 'off' : 'on'
+      log.push({ what: kind + '-toggled', to: state[kind] })
+      paint()
+    })
+  }
+
+  // The join button exists immediately but stays disabled while Meet gets
+  // ready - which is what join.ready() now reads.
+  const readyIn = Number(new URLSearchParams(location.search).get('ready') ?? 400)
+  setTimeout(() => {
+    document.getElementById('join').disabled = false
+    log.push({ what: 'lobby-ready' })
+  }, readyIn)
+
+  document.getElementById('join').addEventListener('click', () => {
+    state.joined = true
+    log.push({ what: 'joined' })
+    document.getElementById('lobby').hidden = true
+    document.getElementById('call').hidden = false
+    paint()
+  })
+
+  // Meet's own leave handler is bound to the same element the extension binds
+  // to, which is why stopPropagation alone never held it back.
+  document.getElementById('leave').addEventListener('click', () => {
+    log.push({ what: 'leave-default-ran' })
+    state.joined = false
+  })
+
+  document.getElementById('cc').addEventListener('click', function () {
+    const on = /^Turn off/.test(this.getAttribute('aria-label'))
+    this.setAttribute('aria-label', on ? 'Turn on captions' : 'Turn off captions')
+    this.querySelector('i').textContent = on ? 'closed_caption_off' : 'closed_caption'
+    log.push({ what: 'captions', to: !on })
+  })
+
+  window.__meet = {
+    micOn: () => state.mic === 'on',
+    camOn: () => state.cam === 'on',
+    joined: () => state.joined,
+    inCall: () => !document.getElementById('call').hidden,
+    log: () => log.slice(),
+    toggles: kind => log.filter(e => e.what === kind + '-toggled').length,
+    fitButtons: () => document.querySelectorAll('.gmeetkit-fullscreen-btn').length,
+    captionsOn: () => /^Turn off/.test(document.getElementById('cc').getAttribute('aria-label'))
+  }
+
+  if (strip.has('icons')) document.querySelectorAll('i.google-symbols').forEach(i => i.remove())
+  if (strip.has('jsname')) document.querySelectorAll('[jsname]').forEach(e => e.removeAttribute('jsname'))
+  if (strip.has('labels')) {
+    for (const id of ['leave', 'cc']) {
+      const el = document.getElementById(id)
+      if (el) el.removeAttribute('aria-label')
+    }
+  }
+
+  paint()
 </script>

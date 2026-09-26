@@ -11,13 +11,31 @@ let links = [];
 const linksContainer = document.getElementById('linksContainer');
 const meetForLaterContainer = document.getElementById('meetForLaterContainer');
 const recentMeetingsContainer = document.getElementById('recentMeetingsContainer');
-const newLinkName = document.getElementById('newLinkName');
-const newLinkUrl = document.getElementById('newLinkUrl');
 const addLink = document.getElementById('addLinkDiv');
 // Number of meeting urls to fetch to choose your meeting.
 const fetchMeetingCount = 10;
 // For controlling fetch meeting urls
 let fetchController = null;
+
+/**
+ * Keeps a stored link navigable only if it is an ordinary web address.
+ *
+ * Saved links round-trip through chrome.storage.sync, so a javascript: url
+ * saved once would come back as a clickable link inside the extension's own
+ * origin on every device.
+ *
+ * @param {string} url
+ *
+ * @returns {string} the url, or "#" if it is not http(s)
+ */
+function safeMeetingUrl(url) {
+    try {
+        const parsed = new URL(url, 'https://meet.google.com');
+        return (parsed.protocol === 'https:' || parsed.protocol === 'http:') ? parsed.href : '#';
+    } catch (e) {
+        return '#';
+    }
+}
 
 // Render the links
 function renderLinks() {
@@ -100,12 +118,31 @@ function renderLinks() {
 
         // If edit mode, render item with inputs, save and delete icon
         if (link.editing) {
-            linkItem.innerHTML = `
-                <input type="text" value="${link.name}" placeholder="name" class="name-edit-input" id="editName${index}">
-                <input type="text" value="${link.url}" placeholder="url" class="link-edit-input" id="editUrl${index}">
-                <button class="icon-btn save-icon" id="saveBtn${index}" aria-label="save"></button>
-                <button class="icon-btn delete-icon" id="deleteBtn${index}" aria-label="delete"></button>
-            `;
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.value = link.name;          // property, not an attribute in markup
+            nameInput.placeholder = 'name';
+            nameInput.className = 'name-edit-input';
+            nameInput.id = `editName${index}`;
+
+            const urlInput = document.createElement('input');
+            urlInput.type = 'text';
+            urlInput.value = link.url;
+            urlInput.placeholder = 'url';
+            urlInput.className = 'link-edit-input';
+            urlInput.id = `editUrl${index}`;
+
+            const saveBtn = document.createElement('button');
+            saveBtn.className = 'icon-btn save-icon';
+            saveBtn.id = `saveBtn${index}`;
+            saveBtn.setAttribute('aria-label', 'save');
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'icon-btn delete-icon';
+            delBtn.id = `deleteBtn${index}`;
+            delBtn.setAttribute('aria-label', 'delete');
+
+            linkItem.append(nameInput, urlInput, saveBtn, delBtn);
 
             linkItem.addEventListener('keydown', function (event) {
                 if (event.key === 'Enter') {
@@ -117,11 +154,24 @@ function renderLinks() {
 
             // If non-edit mode, render item with edit and delete icon
         } else {
-            linkItem.innerHTML = `
-                <a href="${link.url}" target="_blank" class="link-name">${link.name}</a>
-                <button class="icon-btn edit-icon" id="editBtn${index}" aria-label="edit"></button>
-                <button class="icon-btn delete-icon" id="deleteBtn${index}"  aria-label="delete"></button>
-            `;
+            const anchor = document.createElement('a');
+            anchor.href = safeMeetingUrl(link.url);
+            anchor.target = '_blank';
+            anchor.rel = 'noopener noreferrer';
+            anchor.className = 'link-name';
+            anchor.textContent = link.name;       // text, never markup
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'icon-btn edit-icon';
+            editBtn.id = `editBtn${index}`;
+            editBtn.setAttribute('aria-label', 'edit');
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'icon-btn delete-icon';
+            delBtn.id = `deleteBtn${index}`;
+            delBtn.setAttribute('aria-label', 'delete');
+
+            linkItem.append(anchor, editBtn, delBtn);
 
             // Click listener for opening saved meetings
             linkItem.addEventListener('click', function (event) {
@@ -155,9 +205,6 @@ addLink.addEventListener('click', () => {
     links.push({ name: '', url: '', editing: true });
     renderLinks();
 });
-
-// Gets all checkboxes
-const meetings = document.querySelectorAll('div[class="link-item"]');
 
 /**
  * Edit a link (switch to edit mode)
@@ -417,12 +464,23 @@ async function openRecentMeetings() {
         const linkItem = document.createElement('div');
         linkItem.className = 'link-item';
 
-        linkItem.innerHTML = `
-            <a href="https://meet.google.com/${meeting.id}" target="_blank" class="link-name">
-                ${meeting.id} <small class = "time-ago" >(${getTimeAgo(meeting.history[0].endTime)})</small>
-            </a>
-            <img src="images/angle-small-right.svg" class="icon">
-        `;
+        const anchor = document.createElement('a');
+        anchor.href = `https://meet.google.com/${encodeURIComponent(meeting.id)}`;
+        anchor.target = '_blank';
+        anchor.rel = 'noopener noreferrer';
+        anchor.className = 'link-name';
+        anchor.textContent = `${meeting.id} `;
+
+        const ago = document.createElement('small');
+        ago.className = 'time-ago';
+        ago.textContent = `(${getTimeAgo(meeting.history?.[0]?.endTime)})`;
+        anchor.appendChild(ago);
+
+        const chevron = document.createElement('img');
+        chevron.src = 'images/angle-small-right.svg';
+        chevron.className = 'icon';
+
+        linkItem.append(anchor, chevron);
 
         linkItem.addEventListener('click', function () {
             this.querySelector('a').click();

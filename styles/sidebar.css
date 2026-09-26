@@ -5,6 +5,12 @@
     --gk-panel: #141518;
     --gk-text: #e8f8f3;
     --gk-muted: #9aa7a3;
+    /* White on --gk-green measures 3.28:1, below the 4.5:1 AA threshold for
+       body text. The brand green stays; the label on it goes near-black,
+       which measures 5.21:1. */
+    --gk-on-green: #04201b;
+    --gk-danger: #f87171;
+    --gk-focus: #4fd1b0;
     --radius: 10px;
 }
 
@@ -128,9 +134,29 @@ main {
 
 .controls-top {
     display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+    margin-bottom: 8px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.controls-row {
+    display: flex;
     gap: 10px;
     align-items: center;
-    margin-bottom: 8px;
+    justify-content: space-between;
+}
+
+.controls-top .meeting-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.recorder-btn {
+    white-space: nowrap;
 }
 
 .auto-record {
@@ -206,7 +232,7 @@ main {
 
 .go-live {
     background: var(--gk-green);
-    color: #fff;
+    color: var(--gk-on-green);
     border: none;
     border-radius: 30px;
     padding: 10px 18px;
@@ -248,11 +274,20 @@ main {
 
 .controls button {
     background: var(--gk-green);
-    color: #fff;
+    color: var(--gk-on-green);
+    font-weight: 600;
     border: none;
     border-radius: 6px;
     padding: 6px 10px;
     cursor: pointer;
+}
+
+.controls button:hover {
+    background: var(--gk-green-light);
+}
+
+.controls button.flash {
+    background: var(--gk-green-light);
 }
 
 .settings-option {
@@ -266,6 +301,10 @@ main {
 }
 
 .toggle {
+    appearance: none;
+    border: none;
+    padding: 0;
+    flex: none;
     position: relative;
     width: 40px;
     height: 20px;
@@ -389,4 +428,357 @@ main {
 .controls select option {
     background: var(--gk-panel);
     color: var(--gk-text);
+}
+
+/* ---------------------------------------------------------------------------
+   Focus, for everything that takes it.
+
+   Nothing in the panel showed a focus ring, so none of it could be operated
+   from the keyboard with any idea of where you were.
+   --------------------------------------------------------------------------- */
+
+:focus-visible {
+    outline: 2px solid var(--gk-focus);
+    outline-offset: 2px;
+}
+
+.menu button:focus-visible,
+.history-card:focus-visible {
+    outline-offset: -2px;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+main>*,
+.history-card {
+    animation: gk-fade 0.2s ease both;
+}
+
+@keyframes gk-fade {
+    from {
+        opacity: 0;
+        transform: translateY(2px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        transition-duration: 0.001ms !important;
+    }
+}
+
+/* --- what the recorder is actually doing -------------------------------- */
+
+.recorder-status {
+    font-size: 12px;
+    color: var(--gk-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    margin-top: 2px;
+}
+
+.recorder-status::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--gk-muted);
+    flex: none;
+}
+
+.recorder-status[data-state="recording"] {
+    color: var(--gk-green-light);
+}
+
+.recorder-status[data-state="recording"]::before {
+    background: #e05c5c;
+    animation: gk-pulse 1.6s ease-in-out infinite;
+}
+
+.recorder-status[data-state="failed"],
+.recorder-status[data-state="storage-full"] {
+    color: var(--gk-danger);
+}
+
+.recorder-status[data-state="failed"]::before,
+.recorder-status[data-state="storage-full"]::before {
+    background: var(--gk-danger);
+}
+
+@keyframes gk-pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.25;
+    }
+}
+
+/* --- the consent card ---------------------------------------------------- */
+
+.consent-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(22, 160, 133, 0.25);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.consent-card h2 {
+    margin: 0;
+    font-size: 16px;
+    color: var(--gk-green-light);
+}
+
+.consent-card p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--gk-text);
+}
+
+.consent-law {
+    color: var(--gk-muted) !important;
+    border-left: 2px solid rgba(22, 160, 133, 0.4);
+    padding-left: 10px;
+}
+
+.consent-auto {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--gk-text);
+    cursor: pointer;
+}
+
+.consent-auto input {
+    width: 16px;
+    height: 16px;
+    flex: none;
+}
+
+.consent-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 4px;
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background: var(--gk-green);
+    color: var(--gk-on-green);
+    border: none;
+}
+
+.btn-primary:hover {
+    background: var(--gk-green-light);
+}
+
+.btn-secondary {
+    background: transparent;
+    color: var(--gk-text);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.btn-danger {
+    background: transparent;
+    color: var(--gk-danger);
+    border: 1px solid rgba(248, 113, 113, 0.4);
+    width: 100%;
+}
+
+.btn-danger:hover {
+    background: rgba(248, 113, 113, 0.1);
+}
+
+/* --- history cards ------------------------------------------------------- */
+
+.history-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.live-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--gk-on-green);
+    background: var(--gk-green-light);
+    border-radius: 20px;
+    padding: 1px 8px;
+}
+
+.history-stats {
+    font-size: 12px;
+    color: var(--gk-muted);
+}
+
+.history-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.icon-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--gk-muted);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.icon-btn:hover {
+    color: var(--gk-text);
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+.icon-btn.danger:hover {
+    color: var(--gk-danger);
+    border-color: rgba(248, 113, 113, 0.5);
+}
+
+.icon-btn.flash {
+    color: var(--gk-green-light);
+    border-color: var(--gk-green);
+}
+
+/* --- settings ------------------------------------------------------------ */
+
+.settings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.settings-text {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding-right: 12px;
+}
+
+.settings-label {
+    font-size: 14px;
+    color: var(--gk-text);
+}
+
+.settings-hint {
+    font-size: 12px;
+    color: var(--gk-muted);
+    line-height: 1.4;
+}
+
+.settings-number {
+    width: 74px;
+    flex: none;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--gk-text);
+    font-size: 13px;
+    text-align: right;
+}
+
+.settings-usage {
+    font-size: 12px;
+    color: var(--gk-muted);
+    padding: 12px 10px 4px;
+}
+
+.settings-danger {
+    margin-top: 10px;
+}
+
+.settings-policy {
+    display: block;
+    margin-top: 14px;
+    padding: 4px 10px;
+    font-size: 12px;
+    color: var(--gk-green-light);
+}
+
+
+/* ---------------------------------------------------------------------------
+   The bottom bar, at side-panel width.
+
+   Search, the speaker dropdown and two buttons on one row do not fit in a
+   400px panel: Copy was clipped and Export was off-screen entirely. Search
+   takes its own row and the rest shares the next one.
+   --------------------------------------------------------------------------- */
+
+.controls.visible {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.controls #search {
+    flex: 1 1 100%;
+    min-width: 0;
+}
+
+.controls select {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.controls button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+/* A number setting reads as a quantity, not a bare figure. */
+.settings-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+}
+
+.settings-unit {
+    font-size: 12px;
+    color: var(--gk-muted);
 }

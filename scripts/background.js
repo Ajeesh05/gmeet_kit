@@ -14,7 +14,11 @@ chrome.runtime.onConnect.addListener((port) => {
         if (port.name === "popup") {
             // Replay message from panel to content script
             chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                chrome.tabs.sendMessage(tabs[0].id, message);
+                if (!tabs.length) return;
+                chrome.tabs.sendMessage(tabs[0].id, message, () => {
+                    // The tab may have no content script (not a Meet page).
+                    void chrome.runtime.lastError;
+                });
             });
         } else if (port.name === "content") {
 
@@ -37,7 +41,7 @@ function sendInitData(tabId) {
     chrome.storage.sync.get('settings', function (result) {
         const message = {
             type: "initData",
-            data: result.settings
+            data: { ...DEFAULT_SETTINGS, ...(result.settings || {}) }
         };
         chrome.tabs.sendMessage(tabId, message, function (response) {
             if (chrome.runtime.lastError) {
@@ -70,7 +74,7 @@ function sendMessageToActiveTab(message, retries = 5) {
         } else if (retries > 0) {
             console.warn('No active tab found. Retrying...');
             setTimeout(function () {
-                sendMessageToActiveTab(retries - 1);
+                sendMessageToActiveTab(message, retries - 1);
             }, 500);  // Retry after 500ms
         } else {
             console.log('Failed to find an active tab after multiple attempts.');
@@ -135,13 +139,49 @@ function sendMessageOnActivated(subdomain) {
 }
 
 
-const MEETING_REGEX = /^https:\/\/meet\.google\.com\/([a-z]{3}-[a-z]{4}-[a-z]{3})$/;
+const MEETING_REGEX = /^[a-z]{3}-[a-z]{4}-[a-z]{3}$/;
 const meetingSessions = {}; // Stores temporary active meetings (tabId -> { id, startTime })
+
+/**
+ * Extracts the meeting code from a Meet url.
+ *
+ * Meet routinely appends a query string - ?authuser= when several accounts are
+ * signed in, ?pli=, ?hs= from calendar links - so the code is read from the
+ * path rather than by matching the whole url. The hostname is still compared
+ * exactly, which is what keeps meet.google.com.evil.test out.
+ *
+ * @param {string} url
+ *
+ * @returns {string|null} the meeting code, or null if this is not a meeting
+ */
+function meetingIdFromUrl(url) {
+    try {
+        const u = new URL(url);
+        if (u.protocol !== 'https:' || u.hostname !== 'meet.google.com') return null;
+        const first = u.pathname.split('/').filter(Boolean)[0];
+        return first && MEETING_REGEX.test(first) ? first : null;
+    } catch (e) {
+        return null; // chrome://, about:blank and friends
+    }
+}
+
+/**
+ * Writes the in-flight sessions to disk so a service-worker restart can pick
+ * them back up. MV3 evicts the worker whenever it likes, which used to lose
+ * the meeting entirely.
+ */
+function persistSessions() {
+    chrome.storage.local.set({ activeMeetingSessions: meetingSessions });
+}
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.url) {
-        const url = new URL(changeInfo.url);
-        const match = url.href.match(MEETING_REGEX);
+        let url;
+        try {
+            url = new URL(changeInfo.url);
+        } catch (e) {
+            return;
+        }
 
         // Detect our special end marker
         if (url.hash === "#end") {
@@ -151,10 +191,16 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
             return;
         }
 
-        if (match) {
-            const id = match[1];
+        const id = meetingIdFromUrl(changeInfo.url);
+
+        if (id) {
+            // Navigating within the same meeting must not restart the clock.
+            if (meetingSessions[tabId] && meetingSessions[tabId].id === id) return;
+            if (meetingSessions[tabId]) completeSession(tabId);
+
             const start = new Date().toISOString();
             meetingSessions[tabId] = { id, start };
+            persistSessions();
         } else if (meetingSessions[tabId]) {
             // User navigated away from meeting
             completeSession(tabId);
@@ -221,6 +267,7 @@ function completeSession(tabId, session = null, endTime = null) {
     });
 
     if (tabId) delete meetingSessions[tabId];
+    persistSessions();
 }
 
 
@@ -237,33 +284,91 @@ function formatTime(date) {
         + `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
-// Add a lastSeen property to each session every second
+/**
+ * Heartbeat: refresh lastSeen so an interrupted session can still be closed out
+ * with a sensible end time.
+ *
+ * Durations are rounded to whole minutes, so a 30-second beat is as precise as
+ * the output can be. It used to run every second, which wrote the whole session
+ * map to disk 86,400 times a day whether or not anything had changed.
+ */
+const HEARTBEAT_MS = 30000;
+
 setInterval(() => {
+    if (Object.keys(meetingSessions).length === 0) return;
     const now = new Date().toISOString();
     for (const tabId in meetingSessions) {
         meetingSessions[tabId].lastSeen = now;
     }
-    chrome.storage.local.set({ activeMeetingSessions: meetingSessions });
-}, 1000); // every second
+    persistSessions();
+}, HEARTBEAT_MS);
 
-// On extension startup, complete unfinished sessions using lastSeen as end time
-chrome.runtime.onStartup.addListener(() => {
+/**
+ * Recover sessions left behind by a previous worker.
+ *
+ * This runs every time the worker starts, not only at browser startup. MV3
+ * discards the worker after about thirty seconds of inactivity - routinely, in
+ * the middle of a call - and meetingSessions lives only in worker memory, so a
+ * meeting in progress used to vanish without ever being recorded.
+ *
+ * A tab that is still open keeps its original start time and carries on being
+ * timed. A tab that has gone is closed out at its last heartbeat.
+ */
+function restoreSessions() {
     chrome.storage.local.get('activeMeetingSessions', (data) => {
-        const sessions = data.activeMeetingSessions || {};
-        for (const tabId in sessions) {
-            const session = sessions[tabId];
-            if (session && session.lastSeen) {
-                completeSession("", session, session.lastSeen);
+        const saved = data.activeMeetingSessions || {};
+        if (Object.keys(saved).length === 0) return;
+
+        chrome.tabs.query({}, (tabs) => {
+            const open = new Set((tabs || []).map(t => String(t.id)));
+
+            for (const tabId of Object.keys(saved)) {
+                const session = saved[tabId];
+                if (!session || !session.id) continue;
+
+                if (open.has(String(tabId))) {
+                    // Still in the meeting - resume timing it.
+                    if (!meetingSessions[tabId]) meetingSessions[tabId] = session;
+                } else {
+                    completeSession(null, session, session.lastSeen || session.start);
+                }
             }
-        }
-        chrome.storage.local.remove('activeMeetingSessions');
+
+            persistSessions();
+        });
     });
-});
+}
+
+restoreSessions();
+chrome.runtime.onStartup.addListener(restoreSessions);
 
 
 // chrome.storage.sync.remove("recentMeetings", function() {
 //     console.log("Greeting removed!");
 // });
+
+/**
+ * Settings every option starts at, written once on install.
+ *
+ * Without this there is no "settings" key at all on a fresh profile, so the
+ * page received `undefined` and every feature read from it threw.
+ */
+const DEFAULT_SETTINGS = {
+    'auto-mute': false,
+    'auto-video-off': false,
+    'disable-mic': false,
+    'disable-camera': false,
+    'push-to-talk': false,
+    'auto-join': false,
+    'leave-confirmation': false
+};
+
+chrome.runtime.onInstalled.addListener(() => {
+    chrome.storage.sync.get('settings', (result) => {
+        // Merge rather than overwrite: an update must not reset the user's choices.
+        chrome.storage.sync.set({ settings: { ...DEFAULT_SETTINGS, ...(result.settings || {}) } });
+    });
+});
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResp) => {
     if (msg?.action === 'requestEnableSidePanel') {
@@ -315,6 +420,19 @@ async function handleTabChange(tab) {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === "wake_up") {
         sendResponse({ ok: true });
+        return;
+    }
+
+    // A content script asking for its settings again.
+    //
+    // The original request travels over a long-lived port, which dies with the
+    // service worker - and MV3 stops the worker whenever it feels like it. A
+    // request sent this way starts the worker if it is not running, so the tab
+    // cannot end up waiting forever with every feature silently off.
+    if (msg.type === "requestSettings") {
+        const tabId = sender?.tab?.id;
+        if (tabId) sendInitData(tabId);
+        sendResponse({ ok: !!tabId });
     }
 });
 

@@ -1,6 +1,3 @@
 {
-  "scripts/content-scripts/ports.js": 3,
-  "scripts/enhancer.js": 2,
-  "scripts/popup/saved-links.js": 2,
-  "scripts/sidebar.js": 2
+  "scripts/popup/saved-links.js": 2
 }

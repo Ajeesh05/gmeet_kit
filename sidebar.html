@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -5,34 +6,36 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Gmeet Kit — Side Panel</title>
     <link rel="stylesheet" href="styles/sidebar.css">
-
 </head>
 
-<div class="sidepanel">
-    <div class="menu">
-        <button class="active" data-tab="transcript">Live Transcript</button>
-        <button data-tab="history">History</button>
-        <button data-tab="settings">Settings</button>
+<body>
+    <div class="sidepanel">
+        <nav class="menu" role="tablist" aria-label="Side panel sections">
+            <button class="active" data-tab="transcript" role="tab" aria-selected="true">Live Transcript</button>
+            <button data-tab="history" role="tab" aria-selected="false">History</button>
+            <button data-tab="settings" role="tab" aria-selected="false">Settings</button>
+        </nav>
+
+        <div class="content-area">
+            <div id="historyList" class="history-list" style="display:none" aria-label="Recorded meetings"></div>
+            <main id="content" role="tabpanel" aria-live="polite" aria-relevant="additions text"></main>
+        </div>
+
+        <div class="controls" id="controls">
+            <label class="visually-hidden" for="search">Search transcript</label>
+            <input id="search" type="search" placeholder="Search transcript..." />
+
+            <label class="visually-hidden" for="speakerFilter">Filter by speaker</label>
+            <select id="speakerFilter">
+                <option value="">All Speakers</option>
+            </select>
+
+            <button id="copyAll" type="button">Copy</button>
+            <button id="export" type="button">Export</button>
+        </div>
     </div>
 
-    <div class="content-area">
-        <div id="historyList" class="history-list" style="display:none"></div>
-        <main id="content"></main>
-    </div>
-
-    <div class="controls" id="controls">
-        <input id="search" placeholder="Search transcript..." />
-        <select id="speakerFilter">
-            <option value="">All Speakers</option>
-        </select>
-        <button id="copyAll">Copy</button>
-        <button id="export">Export</button>
-    </div>
-
-</div>
-
-<script src="scripts/sidebar.js"></script>
-
+    <script src="scripts/sidebar.js"></script>
 </body>
 
 </html>
