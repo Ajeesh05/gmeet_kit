@@ -1,3 +1,1 @@
-[
-  "undeclared-permission|scripts/sidebar.js uses chrome.scripting, but \"scripting\" is not in permissions - the call will fail at runtime"
-]
+[]

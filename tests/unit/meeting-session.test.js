@@ -32,32 +32,67 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-describe('MEETING_REGEX', () => {
+describe('meetingIdFromUrl', () => {
   beforeEach(() => boot())
 
-  it('matches a real meeting code', () => {
-    expect('https://meet.google.com/abc-defg-hij'.match(consts.MEETING_REGEX)?.[1]).toBe('abc-defg-hij')
-  })
-
-  it('rejects the Meet landing page', () => {
-    expect(consts.MEETING_REGEX.test('https://meet.google.com/')).toBe(false)
-  })
-
-  it('rejects a meeting url carrying a query string', () => {
-    // Worth pinning: Meet appends ?authuser=0 when several accounts are signed
-    // in, and the exact-match anchor means those visits are not tracked.
-    expect(consts.MEETING_REGEX.test('https://meet.google.com/abc-defg-hij?authuser=0')).toBe(false)
+  it('reads the code from a plain meeting url', () => {
+    expect(consts.meetingIdFromUrl('https://meet.google.com/abc-defg-hij')).toBe('abc-defg-hij')
   })
 
   it.each([
-    'https://meet.google.com/ABC-DEFG-HIJ',
+    ['?authuser=0', 'https://meet.google.com/abc-defg-hij?authuser=0'],
+    ['?pli=1', 'https://meet.google.com/abc-defg-hij?pli=1'],
+    ['a calendar link', 'https://meet.google.com/abc-defg-hij?hs=224&authuser=2'],
+    ['a fragment', 'https://meet.google.com/abc-defg-hij#start'],
+    ['a trailing slash', 'https://meet.google.com/abc-defg-hij/']
+  ])('still reads the code with %s', (_label, url) => {
+    // Meet appends these routinely - several accounts signed in, calendar
+    // links, deep links. The old exact-match anchor meant none of those
+    // meetings were ever recorded.
+    expect(consts.meetingIdFromUrl(url)).toBe('abc-defg-hij')
+  })
+
+  it.each([
+    'https://meet.google.com/',
+    'https://meet.google.com/new',
+    'https://meet.google.com/landing',
     'https://meet.google.com/ab-defg-hij',
     'https://meet.google.com/abc-defg-hijk',
     'https://meet.google.com/abcdefghij',
     'http://meet.google.com/abc-defg-hij',
-    'https://meet.google.com/lookup/abc-defg-hij'
+    'https://meet.google.com/lookup/abc-defg-hij',
+    'https://meet.google.com.evil.test/abc-defg-hij',
+    'https://notmeet.google.com/abc-defg-hij',
+    'chrome://extensions',
+    ''
   ])('rejects %s', url => {
-    expect(consts.MEETING_REGEX.test(url)).toBe(false)
+    expect(consts.meetingIdFromUrl(url)).toBeNull()
+  })
+
+  it('lower-cases nothing it should not - uppercase codes are not meetings', () => {
+    expect(consts.meetingIdFromUrl('https://meet.google.com/ABC-DEFG-HIJ')).toBeNull()
+  })
+})
+
+describe('session tracking with query strings', () => {
+  it('records a meeting reached with ?authuser=0', async () => {
+    boot()
+    await chrome.tabs.onUpdated.emit(1,
+      { url: 'https://meet.google.com/abc-defg-hij?authuser=0' },
+      meetTab(1))
+
+    expect(consts.meetingSessions[1]).toMatchObject({ id: 'abc-defg-hij' })
+  })
+
+  it('does not restart the clock when the query string changes mid-meeting', async () => {
+    boot()
+    await chrome.tabs.onUpdated.emit(1, { url: 'https://meet.google.com/abc-defg-hij' }, meetTab(1))
+    const started = consts.meetingSessions[1].start
+
+    vi.setSystemTime(new Date('2026-05-01T10:10:00.000Z'))
+    await chrome.tabs.onUpdated.emit(1, { url: 'https://meet.google.com/abc-defg-hij?pli=1' }, meetTab(1))
+
+    expect(consts.meetingSessions[1].start).toBe(started)
   })
 })
 
@@ -266,14 +301,30 @@ describe('findTabsBySubdomain', () => {
   it('sends the stored settings to each matching tab', async () => {
     boot({
       tabs: [{ id: 1, url: 'https://meet.google.com/a' }, { id: 2, url: 'https://meet.google.com/b' }],
-      syncStorage: { settings: { autoMute: true } }
+      syncStorage: { settings: { 'auto-mute': true } }
     })
 
     sw.findTabsBySubdomain('meet.google.com')
     await settle()
 
     expect(chrome.tabs.sendMessage.calls).toHaveLength(2)
-    expect(chrome.tabs.sendMessage.calls[0][1]).toEqual({ type: 'initData', data: { autoMute: true } })
+    expect(chrome.tabs.sendMessage.calls[0][1]).toEqual({
+      type: 'initData',
+      data: { ...consts.DEFAULT_SETTINGS, 'auto-mute': true }
+    })
+  })
+
+  it('sends a complete settings object even on a fresh profile', async () => {
+    // The page reads initSettings['auto-mute'] directly. Handing it undefined
+    // threw and took every feature down with it.
+    boot({ tabs: [{ id: 1, url: 'https://meet.google.com/a' }], syncStorage: {} })
+
+    sw.findTabsBySubdomain('meet.google.com')
+    await settle()
+
+    const sent = chrome.tabs.sendMessage.calls[0][1]
+    expect(sent.data).toEqual(consts.DEFAULT_SETTINGS)
+    expect(Object.keys(sent.data)).toContain('auto-mute')
   })
 
   it('sends nothing when no tab matches', async () => {
@@ -334,7 +385,36 @@ describe('crash recovery', () => {
     await settle()
 
     expect(savedMeetings()['abc-defg-hij']).toMatchObject({ count: 1, totalDurationMinutes: 25 })
-    expect(chrome.storage.local.remove.calls[0][0]).toBe('activeMeetingSessions')
+  })
+
+  it('resumes a session whose tab is still open instead of ending it', async () => {
+    // The worker is discarded routinely mid-call. The meeting must survive it.
+    boot({
+      tabs: [meetTab(7)],
+      localStorage: {
+        activeMeetingSessions: {
+          7: { id: 'abc-defg-hij', start: '2026-05-01T09:00:00.000Z', lastSeen: '2026-05-01T09:59:00.000Z' }
+        }
+      }
+    })
+    await settle()
+
+    expect(consts.meetingSessions[7]).toMatchObject({ id: 'abc-defg-hij' })
+    expect(savedMeetings()).toBeUndefined()      // not closed out - still running
+  })
+
+  it('closes out a restored session whose tab has gone', async () => {
+    boot({
+      tabs: [],
+      localStorage: {
+        activeMeetingSessions: {
+          7: { id: 'abc-defg-hij', start: '2026-05-01T09:00:00.000Z', lastSeen: '2026-05-01T09:25:00.000Z' }
+        }
+      }
+    })
+    await settle()
+
+    expect(savedMeetings()['abc-defg-hij']).toMatchObject({ count: 1, totalDurationMinutes: 25 })
   })
 
   it('does nothing when there is no unfinished session', async () => {

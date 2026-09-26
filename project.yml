@@ -5,10 +5,12 @@ type: chrome-extension
 # propose - may implement, always via a PR you review
 # full    - may implement and auto-merge on green CI
 #
-# audit, and it should stay there until the lint baseline reaches zero.
-# scripts/sidebar.js calls normalizeMeetingId, which is defined nowhere in the
-# codebase, so tryLoadRecentLiveSession throws a ReferenceError today. A project
-# with a known crash in it is not a project to point an autonomous agent at.
+# The crash that justified audit is fixed: normalizeMeetingId is defined and
+# covered by tests, the undeclared chrome.scripting call is gone, and the lint
+# baseline is down to the 2 implicit globals inside the protected
+# "choose your meeting url" feature. CLAUDE.md's rule was that fixing those
+# moves this project to `propose` - left at audit for a human to make that call,
+# since it widens what an agent may do here.
 autonomy: audit
 
 source:

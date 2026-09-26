@@ -6,27 +6,40 @@
      ********************************************************************/
     let lastUrl = location.href;
 
-    const urlObserver = new MutationObserver(() => {
-        if (location.href !== lastUrl) {
-            const oldUrl = lastUrl;
-            lastUrl = location.href;
-            onUrlChanged(oldUrl, lastUrl);
-        }
-    });
+    /**
+     * Meet is a single-page app, so the url changes without a navigation.
+     *
+     * This used to run a MutationObserver over the whole document with
+     * subtree:true just to read location.href - during a call that callback
+     * fires on essentially every frame. A one-second poll notices the same
+     * change and costs nothing.
+     */
+    const checkUrl = () => {
+        if (location.href === lastUrl) return;
+        const oldUrl = lastUrl;
+        lastUrl = location.href;
+        onUrlChanged(oldUrl, lastUrl);
+    };
 
-    urlObserver.observe(document, { subtree: true, childList: true });
+    setInterval(checkUrl, 1000);
+    window.addEventListener("popstate", checkUrl);
 
 
     /********************************************************************
      * CONFIG
      ********************************************************************/
-    const DEBUG = true;
+    // Chatty logging is for development; shipped builds should stay quiet in
+    // the user's console.
+    const DEBUG = false;
     const STORAGE_PREFIX = "gmeet_transcript_";
     const MASTER_KEY = STORAGE_PREFIX + "master_index";
     const SETTINGS_KEY = "transaction_settings";
     const MAX_POLL_ATTEMPTS = 60;
     const POLL_INTERVAL_MS = 1000;
-    const MAX_MEETINGS_TO_KEEP = 15;
+    const DEFAULT_MEETINGS_TO_KEEP = 15;
+    // Mirrors the "Meetings to keep" setting. Read from storage on every
+    // change so the side panel's number is the one that actually applies.
+    let maxMeetingsToKeep = DEFAULT_MEETINGS_TO_KEEP;
 
     const log = (...a) => { if (DEBUG) console.log("[GmeetCaptionRecorder]", ...a); };
     const errorLog = (...a) => console.error("[GmeetCaptionRecorder]", ...a);
@@ -55,11 +68,36 @@
 
     function safeStorageSet(obj, callback) {
         try {
-            chrome.storage.local.set(obj, callback);
+            chrome.storage.local.set(obj, () => {
+                // A write that fails - most often because the quota is full -
+                // sets lastError and returns normally. Nothing used to read it,
+                // so the transcript stopped being saved with no sign anywhere.
+                const err = chrome.runtime.lastError;
+                if (err) {
+                    errorLog("storage.set failed:", err.message);
+                    onStorageError(err.message);
+                }
+                if (typeof callback === "function") callback();
+            });
         } catch (e) {
             console.warn("[GmeetCaptionRecorder] storage.set failed — retrying", e);
             reviveExtension(() => chrome.storage.local.set(obj, callback));
         }
+    }
+
+    /**
+     * Tells the side panel that persistence is failing, so it can stop showing
+     * a recording indicator for a transcript that is not being saved.
+     *
+     * @param {string} message
+     */
+    let storageErrorReported = false;
+    function onStorageError(message) {
+        if (storageErrorReported) return;
+        storageErrorReported = true;
+        try {
+            sendRealtimeMessage({ type: "storage_error", reason: message });
+        } catch (e) { /* the panel may simply not be open */ }
     }
 
     /********************************************************************
@@ -75,6 +113,17 @@
     /********************************************************************
      * RECORDER STATE
      ********************************************************************/
+    /** Keeps maxMeetingsToKeep in step with the side panel's setting. */
+    function readRetention(settings) {
+        const n = Number(settings?.keepMeetings);
+        maxMeetingsToKeep = Number.isFinite(n) && n > 0 ? Math.min(100, Math.round(n)) : DEFAULT_MEETINGS_TO_KEEP;
+    }
+
+    chrome.storage.sync.get([SETTINGS_KEY], (r) => readRetention(r[SETTINGS_KEY]));
+    chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === "sync" && changes[SETTINGS_KEY]) readRetention(changes[SETTINGS_KEY].newValue);
+    });
+
     let recorderState = {
         active: false,
         meetingId: null,
@@ -99,7 +148,9 @@
         // Auto-record logic
         chrome.storage.sync.get([SETTINGS_KEY], (res) => {
             const settings = res[SETTINGS_KEY] || {};
-            if (settings.autoRecord) {
+            // Explicitly true: recording only ever starts on an opt-in the user
+            // has actually made, never on an unset setting.
+            if (settings.autoRecord === true) {
                 enableCaptions();
                 waitAndStartInternal();
             }
@@ -117,13 +168,6 @@
             h = Math.imul(h, 16777619) >>> 0;
         }
         return h.toString(36);
-    };
-
-    const uniqueIdFromImg = (img) => {
-        if (!img) return null;
-        if (img.dataset && img.dataset.iml) return "iml_" + img.dataset.iml;
-        if (img.src) return "src_" + simpleHash(img.src);
-        return "img_" + Math.random().toString(36).slice(2, 9);
     };
 
     function getMeetingId() {
@@ -144,24 +188,65 @@
     const getSessionId = () =>
         `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
+    /**
+     * True when the event target is somewhere the user is entering text.
+     *
+     * Meet's own captions shortcut is a bare "c", and the recorder listens for
+     * it in the capture phase to intercept it. Without this guard it swallowed
+     * every "c" typed into the chat box, the rename field or the search box and
+     * popped the "Disable captions?" modal instead - so with recording on, the
+     * letter c could not be typed anywhere in Meet.
+     *
+     * @param {EventTarget|null} target
+     *
+     * @returns {boolean}
+     */
+    function isTyping(target) {
+        if (!target || !target.tagName) return false;
+        const tag = target.tagName.toLowerCase();
+        return tag === "input"
+            || tag === "textarea"
+            || tag === "select"
+            || target.isContentEditable === true
+            || (typeof target.closest === "function" && !!target.closest('[contenteditable="true"]'));
+    }
+
 
     /********************************************************************
      * CAPTION BUTTON HELPERS
      ********************************************************************/
+    const dom = () => globalThis.MeetDom;
+
+    /**
+     * Finding and reading the captions toggle is MeetDom's job: it tries the
+     * Material Symbols ligature first, then a multi-language label, then the
+     * current jsname. This file used to hard-code jsname="r8qRAd", which Meet
+     * has since renamed - so captions were never enabled and the recorder
+     * could not start at all.
+     */
     function getCaptionButton() {
-        return document.querySelector('button[jsname="r8qRAd"]');
+        return dom().captionsButton();
     }
+
     function isCaptionEnabled() {
-        const b = getCaptionButton();
-        if (!b) return false;
-        return b.getAttribute("aria-label")?.includes("off");
+        return dom().captionsOn();
     }
-    function enableCaptions() {
+
+    function enableCaptions(attempt = 0) {
         const b = getCaptionButton();
-        if (!b) { setTimeout(enableCaptions, 1000); return false; }
+        if (!b) {
+            // Bounded: this used to retry every second for the life of the tab.
+            if (attempt >= MAX_POLL_ATTEMPTS) {
+                errorLog("captions button not found - cannot start the recorder");
+                return false;
+            }
+            setTimeout(() => enableCaptions(attempt + 1), POLL_INTERVAL_MS);
+            return false;
+        }
         if (!isCaptionEnabled()) b.click();
         return true;
     }
+
     function disableCaptions() {
         const b = getCaptionButton();
         if (!b) return false;
@@ -365,7 +450,7 @@
                 master.list.forEach(e => e.active = (e.sessionId === sessionId));
 
                 // Prune old meetings
-                if (master.list.length > MAX_MEETINGS_TO_KEEP) {
+                if (master.list.length > maxMeetingsToKeep) {
                     master.list.sort(
                         (a, b) =>
                             (a.lastAccessed || a.startedAt) -
@@ -374,7 +459,7 @@
 
                     const toRemove = master.list.slice(
                         0,
-                        master.list.length - MAX_MEETINGS_TO_KEEP
+                        master.list.length - maxMeetingsToKeep
                     );
 
                     // Remove actual sessions
@@ -394,7 +479,7 @@
                     });
 
                     master.list = master.list.slice(
-                        master.list.length - MAX_MEETINGS_TO_KEEP
+                        master.list.length - maxMeetingsToKeep
                     );
                 }
 
@@ -444,21 +529,7 @@
      * FIND CAPTION CONTAINER
      ********************************************************************/
     function findCaptionsContainer() {
-        let el = document.querySelector('[jsname="dsyhDe"]');
-        if (el) return el;
-
-        el = document.querySelector('[aria-label="Captions"]');
-        if (el) return el;
-
-        const regions = Array.from(
-            document.querySelectorAll('div[role="region"]')
-        );
-
-        return (
-            regions.find(r =>
-                /caption|captions/i.test(r.getAttribute("aria-label") || "")
-            ) || null
-        );
+        return dom().captionsContainer();
     }
 
 
@@ -502,6 +573,15 @@
             return;
         }
 
+        // initializeGlobalSession finishes asynchronously, so on the auto-start
+        // path the recorder could get here first and stamp every session with
+        // sessionId: null - which made two sessions of one meeting collide and
+        // exported as "<meeting>_null.csv".
+        if (!globalSession.sessionId) {
+            globalSession.meetingId = meetingId;
+            globalSession.sessionId = getSessionId();
+        }
+
         const sessionId = globalSession.sessionId;
         const startedAt = globalSession.startedAt || Date.now();
         if (!globalSession.startedAt) globalSession.startedAt = startedAt;
@@ -514,44 +594,98 @@
             order: []
         };
 
+        /**
+         * Caption block element -> the message that block produced.
+         *
+         * This is what lets a growing caption correct its own line while a
+         * brand new caption becomes a new line. A WeakMap so blocks Meet has
+         * discarded do not keep the transcript alive.
+         *
+         * @type {WeakMap<Element, {entryId: string, msg: object}>}
+         */
+        const blockMessages = new WeakMap();
+
+        /**
+         * Persisting the transcript is debounced.
+         *
+         * saveToStorage rewrites the whole transcript object, and this used to
+         * run on every caption mutation. Meet streams a sentence word by word,
+         * so one twelve-word line cost 24 writes - and because each write grows
+         * with the transcript, the cost is quadratic: a 100-sentence meeting
+         * serialized 23.4 MB of JSON to persist a 17 KB transcript.
+         *
+         * Saving at most once every SAVE_DEBOUNCE_MS keeps the same data with a
+         * bounded amount of writing. The timer holds the transcript by
+         * reference, so a save that fires late still writes the newest text.
+         */
+        const SAVE_DEBOUNCE_MS = 2000;
+        let saveTimer = null;
+
+        function scheduleSave() {
+            if (saveTimer) return;
+            saveTimer = setTimeout(() => {
+                saveTimer = null;
+                saveToStorage(meetingId, transcript, sessionId);
+            }, SAVE_DEBOUNCE_MS);
+        }
+
+        /** Writes immediately - for leaving the call, or stopping the recorder. */
+        function flushSave() {
+            if (saveTimer) {
+                clearTimeout(saveTimer);
+                saveTimer = null;
+            }
+            if (Object.keys(transcript.entries).length) {
+                saveToStorage(meetingId, transcript, sessionId);
+            }
+        }
+
+        /**
+         * Listeners this recorder puts on `document`.
+         *
+         * They used to be added on every start and removed on no stop, so a
+         * start/stop/start cycle left two of each behind and the disable modal
+         * ran once per duplicate.
+         */
+        const listeners = new AbortController();
+        const bound = { capture: true, signal: listeners.signal };
+
 
         /****************************************************************
          * PROCESS ONE CAPTION NODE
          ****************************************************************/
         function processCaptionNode(node) {
             try {
+                // A caption's text can change either by mutating the existing
+                // text node or by replacing it. The replacing case arrives here
+                // as a bare text node, which this used to drop on the floor -
+                // so those updates were never recorded.
+                if (node && node.nodeType === 3) node = node.parentElement;
                 if (!(node instanceof HTMLElement)) return;
 
-                let block = node;
-                while (block && !block.querySelector) block = block.parentElement;
-                if (!block) return;
+                // Which block a mutation belongs to, and how to read speaker
+                // and text out of it, are MeetDom's business. It tries Meet's
+                // current class names first and falls back to the block's
+                // shape - avatar, short name, longer text - when they change.
+                const userBlock = dom().captionBlockOf(node, captionsContainer);
+                if (!userBlock) return;
 
-                let userBlock =
-                    block.closest(".nMcdL") ||
-                    (block.querySelector && (block.querySelector(".nMcdL") || block));
+                const parsed = dom().readCaptionBlock(userBlock);
+                if (!parsed || !parsed.user || !parsed.text) return;
 
-                if (!userBlock || !userBlock.querySelector) {
-                    if (block.querySelector("img"))
-                        userBlock = block;
-                }
+                const user = parsed.user;
+                const avatar = parsed.avatar;
+                // Identify the SPEAKER, not the caption block.
+                //
+                // This used to key on img.dataset.iml, which is a per-element
+                // render timestamp: Meet builds a fresh <img> for every caption
+                // block, so one person became a new "speaker" on every turn -
+                // two speakers over three turns produced five transcript
+                // entries. Name plus avatar url is stable for the length of a
+                // call and still tells two participants apart.
+                const unique = "spk_" + simpleHash(user + "|" + (avatar || ""));
 
-                const nameEl =
-                    userBlock?.querySelector(".KcIKyf, .NWpY1d, span.NWpY1d");
-
-                const textEl =
-                    userBlock?.querySelector(".ygicle, .VbkSUe");
-
-                const imgEl = userBlock?.querySelector("img");
-
-                if (!nameEl || !textEl) return;
-
-                const user = (nameEl.textContent || "").trim();
-                const avatar = imgEl?.src || null;
-                const unique =
-                    uniqueIdFromImg(imgEl) ||
-                    "u_" + simpleHash(user + (avatar || ""));
-
-                const rawText = (textEl.textContent || "").trim();
+                const rawText = parsed.text;
                 if (!rawText) return;
 
                 const now = Date.now();
@@ -569,13 +703,22 @@
                 }
 
                 const entry = transcript.entries[unique];
-                const lastMsg =
-                    entry.messages.length ?
-                        entry.messages[entry.messages.length - 1] :
-                        null;
+                entry.user = user;          // keep the display name current
+                entry.avatar = avatar;
 
-                const lastText = entry.lastText;
-                if (lastText === rawText) return;
+                // A caption block is one utterance. While Meet grows that block
+                // we correct the message it owns; when Meet opens a new block we
+                // append a new message.
+                //
+                // The old code asked only "does this speaker already have a
+                // message?", which was true from the second caption onwards - so
+                // every new utterance overwrote the previous one and a speaker
+                // never held more than one line.
+                const owned = blockMessages.get(userBlock);
+                const lastMsg = owned && owned.entryId === unique ? owned.msg : null;
+
+                if (lastMsg && lastMsg.text === rawText) return;
+                if (!lastMsg && entry.lastText === rawText) return;
 
                 if (lastMsg) {
                     // correction
@@ -597,6 +740,7 @@
                         text: rawText,
                         ts,
                         offset,
+                        seq: lastMsg.seq,
                         replaced: true
                     });
                 } else {
@@ -617,6 +761,7 @@
 
                     entry.messages.push(msg);
                     entry.lastText = rawText;
+                    blockMessages.set(userBlock, { entryId: unique, msg });
 
                     sendRealtimeMessage({
                         type: "caption_add",
@@ -632,7 +777,7 @@
                     });
                 }
 
-                saveToStorage(meetingId, transcript, sessionId);
+                scheduleSave();
 
             } catch (e) { errorLog("processCaptionNode", e); }
         }
@@ -773,23 +918,29 @@
                     interceptDisable(e);
                 }
             },
-            true
+            bound
         );
 
-        // "C" hotkey
+        // "C" hotkey - but never while the user is entering text.
         document.addEventListener(
             "keydown",
             (e) => {
+                if (isTyping(e.target)) return;
                 if (
                     e.key?.toLowerCase() === "c" &&
                     !e.ctrlKey &&
-                    !e.metaKey
+                    !e.metaKey &&
+                    !e.altKey
                 ) {
                     interceptDisable(e);
                 }
             },
-            true
+            bound
         );
+
+        // Leaving the call or closing the tab should not cost the last few
+        // seconds of transcript that the debounce is still holding.
+        window.addEventListener("pagehide", flushSave, { signal: listeners.signal });
 
 
         /****************************************************************
@@ -810,6 +961,8 @@
         return () => {
             try {
                 mo.disconnect();
+                listeners.abort();
+                flushSave();
                 recorderState.active = false;
                 log("Recorder stopped");
             } catch (e) { errorLog("stopFn", e); }
@@ -862,7 +1015,7 @@
     chrome.storage.sync.get([SETTINGS_KEY], (res) => {
         try {
             const settings = res[SETTINGS_KEY] || {};
-            if (settings.autoRecord) {
+            if (settings.autoRecord === true) {
                 enableCaptions();
                 waitAndStartInternal();
             }

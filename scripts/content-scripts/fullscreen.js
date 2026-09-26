@@ -2,10 +2,6 @@
     let addedElements = new Map();
     let observerController = null;
 
-    const policy = globalThis.trustedTypes?.createPolicy("default", {
-        createHTML: (input) => input // ⚠️ sanitize in production
-    }) ?? { createHTML: (input) => input };
-
     const launchVideoInFullscreen = async (video) => {
         try {
             await video.requestFullscreen();
@@ -21,19 +17,33 @@
 
     };
 
+    /**
+     * Builds the button without innerHTML.
+     *
+     * This used to install a Trusted Types policy named "default" that returned
+     * its input unchanged - which is the page-wide policy, and the only reason
+     * it was needed was this one static string.
+     */
     const createButton = (parentWrapper) => {
         const button = document.createElement("div");
 
-        button.innerHTML = policy.createHTML(`
-            <i class="google-material-icons fit-screen-icon" aria-hidden="true">fit_screen</i>
-        `);
+        const icon = document.createElement("i");
+        icon.className = "google-material-icons fit-screen-icon";
+        icon.setAttribute("aria-hidden", "true");
+        icon.textContent = "fit_screen";
 
+        button.append(icon);
         button.className = "gmeetkit-fullscreen-btn";
         button.title = "Fit Screen by Gmeet kit";
 
         parentWrapper.append(button);
         return button;
     };
+
+    // Which tile belongs to the user is MeetDom's business, not this file's.
+    // The previous test was [jsname="aTv5jf"], a generated value that has since
+    // moved, so the button was being added to the user's own video.
+    const isSelfTile = (tile) => globalThis.MeetDom.isSelfTile(tile);
 
     const clearAddedElements = () => {
         for (const button of addedElements.values()) {
@@ -48,31 +58,51 @@
         observerController = new AbortController();
         const { signal } = observerController;
 
-        document.addEventListener("dblclick", (e) => {
-            e.preventDefault();
+        // Bound to the same signal as everything else, so stop() removes it.
+        // Without that, each start() left another listener on the document.
+        document.addEventListener("dblclick", () => {
             if (document.fullscreenElement)
                 document.exitFullscreen();
-        });
+        }, { signal });
 
+        /**
+         * Reconcile buttons against the tiles currently on screen.
+         *
+         * This used to remove every button and build them all again on each
+         * tick - four times a second during a call, which threw away hover and
+         * focus state and churned the DOM for no reason.
+         */
         const update = () => {
-            clearAddedElements();
+            const wanted = new Map();
 
-            const visibleVideos = Array.from(document.querySelectorAll("video"))
-                .filter(v => !v.style.display.includes("none"));
+            for (const video of document.querySelectorAll("video")) {
+                // Actually rendered, rather than "has no inline display:none".
+                // The old check inspected only the element's own style
+                // attribute, so a tile hidden by a class, by an ancestor or by
+                // the hidden attribute still collected a button.
+                if (video.getClientRects().length === 0) continue;
 
-            visibleVideos.forEach(video => {
+                const tile = video.closest("[data-participant-id]");
+                if (!tile || isSelfTile(tile)) continue;
 
-                const parentWrapper = video.closest("[data-participant-id]");
+                wanted.set(tile, video);
+            }
 
-                if (!parentWrapper) return;
+            // Drop buttons whose tile has gone.
+            for (const [tile, button] of addedElements) {
+                if (!wanted.has(tile) || !tile.isConnected) {
+                    button.remove();
+                    addedElements.delete(tile);
+                }
+            }
 
-                if(parentWrapper.getAttribute("jsname") == 'aTv5jf') return;
-                
-                const button = createButton(parentWrapper);
+            // Add buttons for tiles that do not have one yet.
+            for (const [tile, video] of wanted) {
+                if (addedElements.has(tile)) continue;
+                const button = createButton(tile);
                 attachEvents(button, video, signal);
-
-                addedElements.set(parentWrapper, button);
-            });
+                addedElements.set(tile, button);
+            }
         };
 
         update();

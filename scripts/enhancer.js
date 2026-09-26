@@ -5,45 +5,21 @@
  * @date 2024-08-31
  */
 
-(function () {
+(function (root) {
 
 
-    // To select camera element from DOM
-    const cameraIndicator = {
-        attribute: "aria-label",
-        whenOn: "Turn off camera",
-        whenOff: "Turn on camera"
-    };
-
-    // To select mic element from DOM
-    const micIndicator = {
-        attribute: "aria-label",
-        whenOn: "Turn off microphone",
-        whenOff: "Turn on microphone"
-    };
-
-    // To select join button element from DOM
-    const joinIndicator = {
-        attribute: "class",
-        value: "UywwFc-RLmnJb"
-    };
-
-    // To select getting ready element from DOM
-    const gettingReadyIndicator = {
-        attribute: "class",
-        value: "OMfBQ"
-    };
-
-    // To select leave button element from DOM
-    const leaveIndicator = {
-        attribute: "aria-label",
-        value: "Leave call"
-    };
+    // Everything that has to find something in Meet's UI goes through
+    // MeetDom (scripts/meet-dom.js), which tries an icon ligature, then the
+    // keyboard-shortcut hint, then a multi-language accessible name, then the
+    // current jsname. Selectors used to be spelled out here one per control,
+    // each depending on a single generated class name.
+    const dom = () => root.MeetDom;
 
     // Object holds camera related methods
     const camera = {
 
         isDisableInitiated: false,
+        disableIntervalId: null,
 
         /**
          * Get the camera element
@@ -51,10 +27,7 @@
          * @returns {element} Camera element
          */
         get: function () {
-            return document.querySelector(`
-                [${cameraIndicator.attribute}*="${cameraIndicator.whenOn}"], 
-                [${cameraIndicator.attribute}*="${cameraIndicator.whenOff}"]
-            `);
+            return dom().cameraButton();
         },
 
 
@@ -64,12 +37,8 @@
          * @returns {string|undefined} "On", "Off" or undefined if element not detected.
          */
         getStatus: function () {
-            if (document.querySelector(`[${cameraIndicator.attribute}*="${cameraIndicator.whenOn}"]`))
-                return 'On';
-            else if (document.querySelector(`[${cameraIndicator.attribute}*="${cameraIndicator.whenOff}"]`))
-                return 'Off';
-            else
-                return undefined;
+            const on = dom().cameraOn();
+            return on === null ? undefined : (on ? 'On' : 'Off');
         },
 
         /**
@@ -119,10 +88,11 @@
         /**
          * Turns off camera with setTimeout
          */
-        turnOffTimeout: function () {
+        turnOffTimeout: function (attempt = 0) {
             camera.turnOff();
-            if (!join.ready() || !camera.get() || camera.getStatus() === 'On')
-                setTimeout(camera.turnOffTimeout, 1000);
+            if (camera.getStatus() === 'Off') return;          // done
+            if (attempt >= common.MAX_ATTEMPTS) return;        // give up rather than spin
+            setTimeout(() => camera.turnOffTimeout(attempt + 1), 1000);
         },
 
         /**
@@ -132,8 +102,22 @@
 
             if (!camera.isDisableInitiated) {
                 camera.isDisableInitiated = true;
-                setInterval(camera.disable, 2000);
+                // Kept so switching the option off can stop it; it used to run
+                // for the lifetime of the tab whatever the user chose.
+                camera.disableIntervalId = setInterval(camera.disable, 2000);
             }
+        },
+
+        /**
+         * Stop re-disabling and hand control back to the user
+         */
+        allow: function () {
+            if (camera.disableIntervalId) {
+                clearInterval(camera.disableIntervalId);
+                camera.disableIntervalId = null;
+            }
+            camera.isDisableInitiated = false;
+            camera.enable();
         },
 
         /**
@@ -155,16 +139,15 @@
     const mic = {
 
         isDisableInitiated: false,
+        disableIntervalId: null,
+
         /**
          * Get the mic element
          * 
          * @returns {element} Mic element
          */
         get: function () {
-            return document.querySelector(`
-                [${micIndicator.attribute}*="${micIndicator.whenOn}"], 
-                [${micIndicator.attribute}*="${micIndicator.whenOff}"]
-            `);
+            return dom().micButton();
         },
 
         /**
@@ -173,12 +156,8 @@
          * @returns {string|undefined} On, Off or undefined if element is not found
          */
         getStatus: function () {
-            if (document.querySelector(`[${micIndicator.attribute}*="${micIndicator.whenOn}"]`))
-                return 'On';
-            else if (document.querySelector(`[${micIndicator.attribute}*="${micIndicator.whenOff}"]`))
-                return 'Off';
-            else
-                return undefined;
+            const on = dom().micOn();
+            return on === null ? undefined : (on ? 'On' : 'Off');
         },
 
         /**
@@ -228,10 +207,11 @@
         /**
          * Turns off mic with setTimeout
          */
-        turnOffTimeout: function () {
+        turnOffTimeout: function (attempt = 0) {
             mic.turnOff();
-            if (!join.ready() || !mic.get() || mic.getStatus() === 'On')
-                setTimeout(mic.turnOffTimeout, 1000);
+            if (mic.getStatus() === 'Off') return;             // done
+            if (attempt >= common.MAX_ATTEMPTS) return;        // give up rather than spin
+            setTimeout(() => mic.turnOffTimeout(attempt + 1), 1000);
         },
 
         /**
@@ -241,8 +221,22 @@
 
             if (!mic.isDisableInitiated) {
                 mic.isDisableInitiated = true;
-                setInterval(mic.disable, 2000);
+                // Kept so switching the option off can stop it; it used to run
+                // for the lifetime of the tab whatever the user chose.
+                mic.disableIntervalId = setInterval(mic.disable, 2000);
             }
+        },
+
+        /**
+         * Stop re-disabling and hand control back to the user
+         */
+        allow: function () {
+            if (mic.disableIntervalId) {
+                clearInterval(mic.disableIntervalId);
+                mic.disableIntervalId = null;
+            }
+            mic.isDisableInitiated = false;
+            mic.enable();
         },
 
         /**
@@ -263,18 +257,39 @@
     const pushToTalk = {
 
         /**
+         * True when the keystroke belongs to something the user is typing into.
+         *
+         * Meet's chat box, the "send a message" field and the rename dialogs are
+         * all ordinary inputs, so without this a space typed in chat toggled the
+         * microphone - twice per word - and everyone heard it.
+         *
+         * @param {EventTarget} target
+         *
+         * @returns {boolean}
+         */
+        isTyping: function (target) {
+            if (!target || !target.tagName) return false;
+            const tag = target.tagName.toLowerCase();
+            return tag === 'input'
+                || tag === 'textarea'
+                || tag === 'select'
+                || target.isContentEditable === true
+                || (typeof target.closest === 'function' && !!target.closest('[contenteditable="true"]'));
+        },
+
+        /**
          * Handles keydown event for push to talk
          *
          * @param {event} - keydown event
          */
         keyDown: function (event) {
-            if (event.code === 'Space' && !common.spacePressed) {
-                if (mic.get()) {
-                    common.spacePressed = true;
-                    mic.switch();
-                }
-            }
+            if (event.code !== 'Space' || common.spacePressed) return;
+            if (pushToTalk.isTyping(event.target)) return;
+            if (!mic.get()) return;
 
+            event.preventDefault();          // space would also activate a focused button
+            common.spacePressed = true;
+            mic.switch();
         },
 
         /**
@@ -283,11 +298,16 @@
          * @param {event} - keyup event
          */
         keyUp: function (event) {
-            if (event.code === 'Space') {
-                common.spacePressed = false;
-                if (mic.get()) {
-                    mic.switch();
-                }
+            if (event.code !== 'Space') return;
+
+            // Only release a hold this handler actually started, so a space
+            // typed in chat can never leave the microphone flipped.
+            if (!common.spacePressed) return;
+
+            common.spacePressed = false;
+            if (mic.get()) {
+                event.preventDefault();
+                mic.switch();
             }
         },
 
@@ -317,28 +337,20 @@
          * @returns {element} join element
          */
         get: function () {
-            return document.querySelector(`[${joinIndicator.attribute}="${joinIndicator.value}"]`);
-        },
-
-        /**
-         * Get the getting ready element to check if the meet is ready to join
-         * 
-         * @returns {element} Getting ready element
-         */
-        gettingReady: function () {
-            return document.querySelector(`[${gettingReadyIndicator.attribute}="${gettingReadyIndicator.value}"]`)
+            return dom().joinButton();
         },
 
         /**
          * Checks if the meet is ready to join or not.
-         * 
+         *
+         * Readiness is now derived from the join button itself being present
+         * and enabled. It used to look for a "getting ready" spinner by class
+         * name; that class no longer exists, so the check always returned true.
+         *
          * @returns {boolean} Ready to join or not
          */
         ready: function () {
-            if (join.gettingReady() === null)
-                return true;
-            else
-                return false;
+            return dom().readyToJoin();
         },
 
         /**
@@ -352,11 +364,13 @@
         /**
          * to auto join meeting with setTimeout
          */
-        autoJoin: function () {
-            if (join.ready() && join.get())
-                join.join()
-            else
-                setTimeout(join.autoJoin, 1000);
+        autoJoin: function (attempt = 0) {
+            if (join.ready()) {
+                join.join();
+                return;
+            }
+            if (attempt >= common.MAX_ATTEMPTS) return;
+            setTimeout(() => join.autoJoin(attempt + 1), 1000);
         },
 
         /**
@@ -365,10 +379,7 @@
          * @returns {boolean} joined the meet or not
          */
         isJoined: function () {
-            if (leave.getButton())
-                return true;
-            else
-                return false;
+            return dom().inCall();
         }
     };
 
@@ -381,10 +392,19 @@
          * @param {event} - event
          */
         confirm: function (event) {
-            if (!confirm("Do you want to leave the call?"))
-                event.stopPropagation();
-            else
+            if (confirm("Do you want to leave the call?")) {
                 window.location.hash = "end";
+                return;
+            }
+
+            // Meet binds its own handler to this same button, and
+            // stopPropagation does nothing to listeners on the same element.
+            // Cancelling used to leave the call anyway. Registering in the
+            // capture phase puts this ahead of Meet's handler, and
+            // stopImmediatePropagation is what actually holds it back.
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
         },
 
         /**
@@ -393,17 +413,21 @@
          * @returns {element} leave call button element
          */
         getButton: function () {
-            return document.querySelector(`[${leaveIndicator.attribute}="${leaveIndicator.value}"]`)
+            return dom().leaveButton();
         },
 
         /**
          * Sets confirmation message for leaving the call
          */
-        confirmation: function () {
-            if (leave.getButton())
-                leave.getButton().addEventListener("click", leave.confirm);
-            else
-                setTimeout(leave.confirmation, 1000);
+        confirmation: function (attempt = 0) {
+            const button = leave.getButton();
+            if (button) {
+                button.removeEventListener("click", leave.confirm, true);
+                button.addEventListener("click", leave.confirm, true);   // capture
+                return;
+            }
+            if (attempt >= common.MAX_ATTEMPTS) return;
+            setTimeout(() => leave.confirmation(attempt + 1), 1000);
         },
 
         /**
@@ -411,7 +435,7 @@
          */
         confirmationOff: function () {
             if (leave.getButton())
-                leave.getButton().removeEventListener("click", leave.confirm);
+                leave.getButton().removeEventListener("click", leave.confirm, true);
         },
 
         /**
@@ -431,146 +455,80 @@
                     if (!initSettings['leave-confirmation'])
                         window.location.hash = "end";
                 });
-            } else {
+            } else if ((leave.hashAttempts = (leave.hashAttempts || 0) + 1) < common.MAX_ATTEMPTS) {
                 setTimeout(leave.addHashListener, 1000);
             }
 
         }
     };
 
-    const chat = {
-
-        storeMessages: function () {
-
-            const chatContainer = document.querySelector('[jsname="xySENc"]');
-            const chatItems = [];
-            let skeletonHTML = null;
-
-            chatContainer.querySelectorAll('[jsname="Ypafjf"]').forEach((msgBlock, index) => {
-                const name = msgBlock.querySelector('.poVWob')?.textContent.trim() || '';
-                const time = msgBlock.querySelector('[jsname="biJjHb"]')?.textContent.trim() || '';
-
-                const beTDc = msgBlock.querySelector('.beTDc');
-
-                if (!beTDc) return;
-
-                // Extract each message inside `.beTDc`
-                const messageDivs = beTDc.querySelectorAll('[jsname="dTKtvb"] > div');
-                messageDivs.forEach(msgEl => {
-                    const message = msgEl?.textContent.trim() || '';
-                    chatItems.push({ name, time, message });
-                });
-
-                // Save one cleaned-up skeleton from first `.beTDc`
-                if (skeletonHTML === null && beTDc) {
-                    const beTDcClone = beTDc.cloneNode(true);
-
-                    // Remove all dynamic message text and elements with class "Sd72u"
-                    beTDcClone.querySelectorAll('.Sd72u').forEach(el => el.remove());
-                    beTDcClone.querySelectorAll('[jsname="dTKtvb"] > div').forEach(div => {
-                        div.textContent = '{message}';
-                    });
-
-                    skeletonHTML = beTDcClone.outerHTML;
-                }
-            });
-
-            console.log('Stored messages:', chatItems);
-            console.log('Message skeleton:', skeletonHTML);
-
-
-        },
-
-        recordMessage: function () {
-
-            const targetNode = document.querySelector('[jsname="xySENc"]');
-
-            const observer = new MutationObserver((mutationsList) => {
-                for (const mutation of mutationsList) {
-                    if (mutation.type === 'childList') {
-                        chat.storeMessages();
-                    }
-                }
-            });
-
-            if(!targetNode)
-                return;
-
-            observer.observe(targetNode, {
-                childList: true,
-                subtree: true // This ensures changes inside children are also observed
-            });
-        },
-
-        restore: function (messages, skeletonHTML, container) {
-            messages.forEach(({ name, time, message }) => {
-                const wrapper = document.createElement('div');
-                wrapper.className = 'Ss4fHf';
-
-                wrapper.innerHTML = `
-                    <div class="HNucUd">
-                        <div class="poVWob">${name}</div>
-                        <div class="MuzmKe">${time}</div>
-                    </div>
-                    ${skeletonHTML.replace('{message}', message)}
-                `;
-
-                container.appendChild(wrapper);
-            });
-
-        }
-    };
-
-
-
     const profile = {
 
 
         getMoreOptions: function () {
-            return moreOptionsDiv = document.querySelector(`[jsname="JS8eVc"]`);
+            return dom().selfTileMoreOptions();
         },
 
 
         minimize: function () {
-            
-            const moreOptionsDiv = profile.getMoreOptions();
 
-            if(!moreOptionsDiv)
-                return;
+            const moreOptionsButton = profile.getMoreOptions();
 
-            const moreOptionsButton = moreOptionsDiv.querySelector('button[aria-label="More options"]');
-
-            if(!moreOptionsButton)
+            if (!moreOptionsButton)
                 return;
 
             moreOptionsButton.click();
 
-            const minimizeLi = document.querySelector('li[aria-label="Minimize"]')
+            const minimizeLi = Array.from(document.querySelectorAll('li, [role="menuitem"]'))
+                .find(item => /minimize|minimieren|minimizar|réduire|riduci|最小化|최소화/i
+                    .test(item.getAttribute('aria-label') || item.textContent || ''));
 
-            if(!minimizeLi)
+            if (!minimizeLi) {
+                // The menu is open and there is nothing here for us. Close it
+                // again - leaving it up put a menu over the user's own video.
+                document.dispatchEvent(new KeyboardEvent('keydown', {
+                    key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true
+                }));
+                moreOptionsButton.blur();
                 return;
+            }
 
             minimizeLi.click();
         },
 
         isMinimized: function () {
-            return document.querySelector('button[aria-label="Expand"]')
+            return Array.from(document.querySelectorAll('button, [role="button"]'))
+                .find(el => /expand|erweitern|expandir|agrandir|espandi|展开|확대/i
+                    .test(el.getAttribute('aria-label') || '')) || null;
         },
 
 
         /**
          * Turns off mic with setTimeout
          */
-        minimizeTimeout: function () {
+        minimizeTimeout: function (attempt = 0) {
+            if (profile.isMinimized()) return;
+            if (attempt >= profile.MAX_MINIMIZE_ATTEMPTS) return;
+
             profile.minimize();
-            if (!join.ready() || !profile.isMinimized())
-                setTimeout(profile.minimizeTimeout, 1000);
-        }
+
+            if (!profile.isMinimized())
+                setTimeout(() => profile.minimizeTimeout(attempt + 1), 1000);
+        },
+
+        // Deliberately small. Each attempt opens a menu over the user's own
+        // video, so this must not keep trying for the length of the call.
+        MAX_MINIMIZE_ATTEMPTS: 3
 
     };
 
     // Object holds the common methods
     const common = {
+
+        // How many one-second retries any "wait for Meet's UI" loop may make.
+        // Several of these used to recurse forever when the element they were
+        // waiting for never appeared, leaving timers running for the whole call.
+        MAX_ATTEMPTS: 30,
 
         // Space pressed or not for push to talk
         spacePressed: false,
@@ -620,7 +578,7 @@
         },
 
         getCurrentTime() {
-            return timeString = (new Date()).toTimeString().split(' ')[0]; // "HH:MM:SS"
+            return (new Date()).toTimeString().split(' ')[0]; // "HH:MM:SS"
         },
 
         getUid() {
@@ -639,7 +597,10 @@
             // Setting status received from extension
             if (event.data.type === "initData") {
                 if (common.isEmpty(initSettings)) {
-                    initSettings = event.data.data;
+                    // On a fresh install chrome.storage has no "settings" key,
+                    // so data arrives undefined. Assigning it straight through
+                    // made every later read throw and killed the whole script.
+                    initSettings = event.data.data || {};
                     // Initiates the process
                     init();
                 }
@@ -672,12 +633,12 @@
                 "false": false
             },
             "disable-mic": {
-                "true": mic.disable,
-                "false": mic.enable
+                "true": mic.disableTimout,
+                "false": mic.allow
             },
             "disable-camera": {
-                "true": camera.disable,
-                "false": camera.enable
+                "true": camera.disableTimout,
+                "false": camera.allow
             },
             "push-to-talk": {
                 "true": pushToTalk.enable,
@@ -696,8 +657,9 @@
         initSettings[option] = checked;
 
         // calls the mathod dynamically
-        if (change[option][checked])
-            change[option][checked]();
+        const handler = change[option] && change[option][checked];
+        if (typeof handler === 'function')
+            handler();
     }
 
 
@@ -739,6 +701,14 @@
 
     }
 
+    // Tell ports.js the page is listening.
+    //
+    // Settings used to be relayed on a timer - immediately and again 500ms
+    // later - and if this script had not finished loading by then, both copies
+    // were lost and nothing ever asked again: the tab sat there with every
+    // feature silently off. Announcing removes the guesswork.
+    window.postMessage({ type: 'enhancerReady' }, window.location.origin);
+
     /**
      * Initializes the meet operations
      */
@@ -753,4 +723,4 @@
             main();
     }
 
-})();
+})(typeof globalThis !== 'undefined' ? globalThis : window);
