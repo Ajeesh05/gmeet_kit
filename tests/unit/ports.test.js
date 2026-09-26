@@ -167,3 +167,60 @@ describe('asking for settings', () => {
     expect(inits, 'relayed twice by design, not once per retry').toHaveLength(2)
   })
 })
+
+/**
+ * enhancer.js runs in the page's own world, injected as a <script src>, so it
+ * can install its message listener well after the settings have already been
+ * relayed. It announces itself when it is ready; ports.js replays.
+ *
+ * None of this was covered, and it is the seam that decides whether a tab runs
+ * the call configured or with every feature off.
+ */
+const announceReady = () => window.dispatchEvent(
+  new window.MessageEvent('message', { data: { type: 'enhancerReady' }, source: window })
+)
+
+const relayedInitData = () => posted.filter(p => p[0] && p[0].type === 'initData')
+
+describe('the enhancer announcing itself', () => {
+  it('replays settings that arrived before it was listening', async () => {
+    document.dispatchEvent(new Event('DOMContentLoaded'))
+
+    // Settings land while enhancer.js is still being fetched.
+    await chrome.runtime.onMessage.emit({ type: 'initData', data: { 'auto-mute': true } })
+    await vi.advanceTimersByTimeAsync(600)
+    const beforeReady = relayedInitData().length
+
+    announceReady()
+    await vi.advanceTimersByTimeAsync(10)
+
+    expect(relayedInitData().length,
+      'the late listener must still be told').toBeGreaterThan(beforeReady)
+    expect(relayedInitData().at(-1)[0].data).toEqual({ 'auto-mute': true })
+  })
+
+  it('asks again if it is ready before the settings ever came', async () => {
+    document.dispatchEvent(new Event('DOMContentLoaded'))
+    const before = chrome.runtime.sendMessage.calls.length
+
+    announceReady()
+    await vi.advanceTimersByTimeAsync(10)
+
+    expect(chrome.runtime.sendMessage.calls.length +
+      port.postMessage.calls.length).toBeGreaterThan(before)
+  })
+
+  it('ignores a message that did not come from this window', async () => {
+    document.dispatchEvent(new Event('DOMContentLoaded'))
+    await chrome.runtime.onMessage.emit({ type: 'initData', data: { 'auto-mute': true } })
+    await vi.advanceTimersByTimeAsync(600)
+    const before = relayedInitData().length
+
+    // An iframe or an extension on the page must not be able to drive this.
+    window.dispatchEvent(new window.MessageEvent('message',
+      { data: { type: 'enhancerReady' }, source: null }))
+    await vi.advanceTimersByTimeAsync(10)
+
+    expect(relayedInitData().length).toBe(before)
+  })
+})

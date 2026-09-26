@@ -37,6 +37,37 @@ const settingsArrived = page =>
     { timeout: 15000 }
   )
 
+/**
+ * What the page knows, for when an assertion about it fails.
+ *
+ * These tests have failed on CI while passing locally and under artificial
+ * load, which is exactly the case where a bare "expected true to be false" is
+ * worth nothing. This distinguishes the possibilities: the settings never
+ * reached the page, or enhancer.js never announced itself, or it did both and
+ * still could not find the control.
+ *
+ * @param {import('@playwright/test').Page} page
+ *
+ * @returns {Promise<string>}
+ */
+const diagnose = page => page.evaluate(() => {
+  const seen = (window.__received || []).map(m => m && m.type)
+  const dom = window.MeetDom
+  const mic = dom && dom.micButton ? dom.micButton() : null
+  const name = mic
+    ? (mic.getAttribute('aria-label') || mic.getAttribute('data-tooltip') || mic.textContent || '')
+    : null
+  return [
+    `messages seen by the page: ${JSON.stringify(seen)}`,
+    `enhancer announced itself: ${seen.includes('enhancerReady')}`,
+    `settings reached the page: ${seen.includes('initData')}`,
+    `MeetDom present in page world: ${!!dom}`,
+    `mic button resolved: ${!!mic}${name === null ? '' : ` (name: ${JSON.stringify(name.trim())})`}`,
+    `MeetDom health: ${dom && dom.health ? JSON.stringify(dom.health()) : 'n/a'}`,
+    `stub log: ${JSON.stringify((window.__meet && window.__meet.log()) || [])}`
+  ].join('\n')
+}).catch(e => `diagnostics unavailable: ${e}`)
+
 const join = async page => {
   await page.waitForSelector('#join:not([disabled])')
   await page.click('#join')
@@ -218,8 +249,12 @@ test.describe('surviving a Meet rebuild', () => {
       const page = await openMeet(context, meet, 'abc-defg-hij', query)
       await settingsArrived(page)
 
-      await expect.poll(() => page.evaluate(() => window.__meet.micOn()), { timeout: 15000 }).toBe(false)
-      await expect.poll(() => page.evaluate(() => window.__meet.camOn())).toBe(false)
+      try {
+        await expect.poll(() => page.evaluate(() => window.__meet.micOn()), { timeout: 15000 }).toBe(false)
+        await expect.poll(() => page.evaluate(() => window.__meet.camOn())).toBe(false)
+      } catch (e) {
+        throw new Error(`${e.message}\n\n--- page state ---\n${await diagnose(page)}`)
+      }
       expect(page.errors, page.errors.join('\n')).toEqual([])
     })
 
